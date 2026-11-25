@@ -749,6 +749,22 @@ do
     ns.ShowUI("chars")
 end
 
+-- Reputation: one character from the dropdown gets the game-window list with exact numbers
+do
+    ns.ShowUI("reps", "", ns.meKey)
+    local view
+    for _, f in ipairs(allFrames) do if rawget(f, "one") and rawget(f, "drop") then view = f end end
+    view.one.scripts.OnSizeChanged(view.one, 800, 400)
+    local honored
+    for _, r in ipairs(view.one.rows) do if r.shown and r.num.text == "4,000 / 12,000" then honored = r end end
+    check(view.one.shown and not view.list.shown and honored and honored.standing.text == "Honored",
+        "reputation: one character shows standing and exact numbers")
+    check(ForeverAltsFrame.footer.text:find("Exalted", 1, true) ~= nil, "reputation: the footer counts standings")
+    ns.ShowUI("reps", "", false)
+    check(view.list.shown and not view.one.shown and view.drop.label.text:find("ALL", 1, true) ~= nil,
+        "reputation: all characters goes back to the comparison")
+end
+
 -- Items: one character from the dropdown shows a grid by place; the search filters it
 do
     ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")

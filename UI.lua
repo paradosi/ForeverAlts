@@ -388,26 +388,6 @@ local function FilterChar()
     return c
 end
 
--- "ONLY Name ×" beside a view's search box; click to show every character again
-local function OnlyChip(view)
-    local b = CreateFrame("Button", nil, view)
-    b:SetHeight(24)
-    b:SetPoint("LEFT", view.search, "RIGHT", 10, 0)
-    b.text = T.Chip(b)
-    b.text:SetPoint("LEFT", 8, 0)
-    b:SetScript("OnClick", function() filterKey = nil; view:Refresh() end)
-    function b:Update()
-        local c = FilterChar()
-        self:SetShown(c ~= nil)
-        if c then
-            self.text:SetText("ONLY " .. c.name:upper() .. "   ×")
-            self:SetWidth(self.text:GetStringWidth() + 16)
-        end
-        return c
-    end
-    return b
-end
-
 ---- The character dropdown: a box showing the choice, a list dropping from it in the window's
 ---- own look (a row per choice, the chosen one marked in gold). A click elsewhere or Esc closes it.
 ---- Choices are { key, c = character or nil, label, info }; onPick(choice) runs on a click.
@@ -1064,9 +1044,14 @@ local function BuildReputation(view)
         view.query = text
         view:Refresh()
     end)
-    view.search:SetPoint("TOPLEFT", 0, 0)
     view.search:SetWidth(360)
-    view.only = OnlyChip(view)
+    -- Whose reputations: everyone side by side, or one character's like the game's window
+    view.drop = ns.CharDropdown(view, function(entry)
+        filterKey = entry.key or nil
+        view:Refresh()
+    end)
+    view.drop:SetPoint("TOPLEFT", 0, 0)
+    view.search:SetPoint("LEFT", view.drop, "RIGHT", 10, 0)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
     view.hint:SetPoint("TOPLEFT", PAD, -120)
@@ -1121,10 +1106,58 @@ local function BuildReputation(view)
     view.list:SetPoint("TOPLEFT", 0, -34)
     view.list:SetPoint("BOTTOMRIGHT")
 
+    -- One character: name, standing, a wide bar with the exact numbers
+    local WIDE = 320
+    view.one = ns.CreateList(view, 30, function(row)
+        row.group = T.Text(row, T.display, 10, C.accent)
+        row.group:SetPoint("BOTTOMLEFT", 6, 6)
+        row.name = T.Text(row, T.display, 12, C.primary)
+        row.name:SetPoint("LEFT", 8, 0)
+        row.name:SetPoint("RIGHT", -(WIDE + 230), 0)
+        row.standing = T.Text(row, T.display, 12, C.primary, "RIGHT")
+        row.standing:SetPoint("RIGHT", -(WIDE + 120), 0)
+        row.standing:SetWidth(100)
+        row.bar = T.Bar(row, WIDE, 6)
+        row.bar:SetPoint("RIGHT", row, "RIGHT", -110, 0)
+        row.num = T.Text(row, T.mono, 10, C.secondary, "RIGHT")
+        row.num:SetPoint("RIGHT", -8, 0)
+        row.num:SetWidth(96)
+    end, function(row, e)
+        local header = e.header ~= nil
+        row.group:SetShown(header)
+        row.name:SetShown(not header)
+        row.standing:SetShown(not header)
+        row.num:SetShown(not header)
+        row.bar:SetShownAll(not header)
+        if header then
+            row.group:SetText(e.header:upper())
+            return
+        end
+        local rep = e.by[1].rep
+        local col = ns.StandingColor(rep.r)
+        row.name:SetText(e.name)
+        row.standing:SetText(ns.StandingName(rep.r))
+        row.standing:SetTextColor(col[1], col[2], col[3])
+        row.bar:SetFillColor(col)
+        local capped = not rep.max or rep.max == 0
+        row.bar:SetValue(capped and 1 or rep.cur / rep.max)
+        row.num:SetText(capped and "" or (ns.Commas(rep.cur) .. " / " .. ns.Commas(rep.max)))
+    end)
+    view.one:SetPoint("TOPLEFT", 0, -34)
+    view.one:SetPoint("BOTTOMRIGHT")
+
     function view:Refresh()
         local query = (self.query or ""):lower()
         local db = ns.db
-        local onlyChar = self.only:Update()
+        local onlyChar = FilterChar()
+        local chars = ns:Characters()
+        table.sort(chars, function(a, b)
+            if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+            return a.name < b.name
+        end)
+        self.drop:SetChoices(ns.CharChoices(chars, "ALL CHARACTERS", "compare everyone"), onlyChar and onlyChar.key)
+        self.one:SetShown(onlyChar ~= nil)
+        self.list:SetShown(onlyChar == nil)
         local found, recorded = {}, 0
         for _, c in ipairs(onlyChar and { onlyChar } or ns:Characters()) do
             if c.reps then recorded = recorded + 1 end
@@ -1177,10 +1210,23 @@ local function BuildReputation(view)
         else
             self.hint:SetText("No faction matches \"" .. (self.query or "") .. "\".")
         end
+        if onlyChar then
+            self.one:SetData(rows)
+            -- How many at each of the top standings
+            local count = {}
+            for _, e in ipairs(list) do local r = e.by[1].rep.r or 4; count[r] = (count[r] or 0) + 1 end
+            local parts = { #list .. " faction" .. (#list == 1 and "" or "s") }
+            for r = 8, 5, -1 do
+                if count[r] then parts[#parts + 1] = Hex(ns.StandingColor(r)) .. count[r] .. " " .. ns.StandingName(r) .. "|r" end
+            end
+            SetFooter(onlyChar.name .. "   ·   " .. table.concat(parts, "   ·   ")
+                .. (onlyChar.repsSeen and ("   ·   as of " .. ns.Ago(onlyChar.repsSeen)) or ""))
+            return
+        end
         self.list:SetData(rows)
-        local chars = onlyChar and 1 or #ns:Characters()
+        local nChars = #chars
         SetFooter(#list .. " faction" .. (#list == 1 and "" or "s") .. "   ·   "
-            .. (recorded < chars and ((chars - recorded) .. " character" .. (chars - recorded == 1 and "" or "s")
+            .. (recorded < nChars and ((nChars - recorded) .. " character" .. (nChars - recorded == 1 and "" or "s")
                 .. " not recorded yet: log in on them") or "hover a faction for exact numbers"))
     end
 end

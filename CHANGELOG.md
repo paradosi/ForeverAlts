@@ -16,6 +16,8 @@
 - **Reputation**: a new tab listing every faction your characters have met, grouped as in the game's
   reputation panel, with each character's standing and the best one's progress bar. Search by faction name;
   hover for exact numbers. Recorded at login and whenever reputation changes.
+  A character dropdown picks one character to see their reputations like the game's window: standing, a wide bar
+  and the exact numbers, with a count of Exalted, Revered, Honored and Friendly factions in the footer.
 - **Lockouts**: a new tab with every raid your characters are saved to: bosses down, when each raid resets,
   and the bosses still up when you hover a character. Lockouts end on their own at the reset. Recorded at
   login and after each boss kill. The Characters tooltip lists what a character is saved to.
@@ -50,7 +52,7 @@
 - Fixed: in a narrow window the footer ran into the version number. It now ends with "…"; hover it for the whole line.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.
   The *Made by* line follows them too.
-- Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.
+- Clicking a character filters both Items and Reputation to them, until you pick *All characters* in the dropdown.
   Right-click a character for *Show reputation*.
 - Click a profession on the Professions tab to list that character's recipes, with who else knows each one.
   Hover a recipe for what it makes (or the enchant it casts).

@@ -31,7 +31,8 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   that character's recipes (search narrows the list). Type in the search box to find which of your characters can make something.
 - **Reputation**: every faction any of your characters has met, grouped like the game's reputation panel, with each
   character's standing (coloured Hated to Exalted, with progress) and a bar for the best of them. Hover a faction
-  for exact numbers.
+  for exact numbers. Pick one character in the dropdown to see their reputations the way the game's window does: standing, a
+  wide bar and the exact numbers.
 - **Lockouts**: a grid of your characters against every raid any of them has been saved to. Each cell shows how
   many bosses are down (gold for a full clear) and clears itself when the lockout resets; each column says when that
   raid resets. Hover a character for the bosses still up.
@@ -111,7 +112,7 @@ listed with the other characters who know it; hover one to see the enchant. Clic
 
 **"What's on my banker alt?"** Pick them from the dropdown on the Items tab, or click their row on the Characters tab:
 their bags, bank, mail and gear show as icon grids. *ALL CHARACTERS* goes back to the search across everyone. The choice
-stays on when you switch to the Reputation tab, which then shows only their standings; its *ONLY …* chip clears it. Right-clicking a character also offers *Show reputation*.
+stays on when you switch to the Reputation tab, which then shows only their standings; *All characters* in the dropdown goes back to everyone. Right-clicking a character also offers *Show reputation*.
 
 **"Who's fully rested?"** Click the *RESTED* heading to sort. 150% (shown in gold) is the cap.
 
