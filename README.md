@@ -16,7 +16,9 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   rested XP, item level, free bag slots, letters in the mail and when you last played it. Click any column heading to sort.
   The footer totals your gold and played time across every character.
 - **Items**: one search box covers every character's bags, bank, gear and mail, plus the account bank. Each result shows
-  who has how many. Click a character on the Characters tab to browse everything they carry.
+  who has how many. Pick a character from the dropdown (or click them on the Characters tab) for a grid of what they hold,
+  a section each for bags, bank, mail and gear, sorted by quality: each heading says how fresh it is, or what to open
+  to record it. The search box filters the grid.
 - **Professions**: every character's professions with skill bars and how many recipes they know. Click one to list
   that character's recipes (search narrows the list). Type in the search box to find which of your characters can make something.
 - **Reputation**: every faction any of your characters has met, grouped like the game's reputation panel, with each
@@ -99,9 +101,9 @@ The same answer shows up on the item's own tooltip as *Made by Aelin (Tailoring)
 **"What enchants does my enchanter know?"** Click their Enchanting row on the Professions tab. Every recipe is
 listed with the other characters who know it; hover one to see the enchant. Click the chip beside the search box to go back.
 
-**"What's on my banker alt?"** Click their row on the Characters tab. The Items tab opens filtered to that character
-and lists everything they hold. The filter stays on when you switch to the Reputation tab, which then shows only their
-standings. Click the *ONLY …* chip on either tab to clear it. Right-clicking a character also offers *Show reputation*.
+**"What's on my banker alt?"** Pick them from the dropdown on the Items tab, or click their row on the Characters tab:
+their bags, bank, mail and gear show as icon grids. *ALL CHARACTERS* goes back to the search across everyone. The choice
+stays on when you switch to the Reputation tab, which then shows only their standings; its *ONLY …* chip clears it. Right-clicking a character also offers *Show reputation*.
 
 **"Who's fully rested?"** Click the *RESTED* heading to sort. 150% (shown in gold) is the cap.
 

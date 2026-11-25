@@ -702,7 +702,33 @@ now = now + 5 * 86400
 ns.ShowUI("locks")
 check(ForeverAltsFrame.footer.text:find("0 of 2 characters saved", 1, true) ~= nil, "lockouts: a lockout past its reset is over")
 now = now - 5 * 86400
-ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")
+-- Items: one character from the dropdown shows a grid by place; the search filters it
+do
+    ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")
+    local view
+    for _, f in ipairs(allFrames) do if rawget(f, "grid") and rawget(f, "drop") then view = f end end
+    local rows = view.grid.data
+    local heads = {}
+    for _, r in ipairs(rows) do if r.head then heads[#heads + 1] = r.head end end
+    check(view.grid.shown and not view.list.shown and table.concat(heads, ",") == "BAGS,BANK,MAIL,EQUIPPED",
+        "items grid: a section per place (" .. table.concat(heads, ",") .. ")")
+    local bank
+    for _, r in ipairs(rows) do if r.head == "BANK" then bank = r end end
+    check(bank.missing and bank.info:find("open a bank on Borin Stonefist", 1, true) ~= nil, "items grid: an unvisited bank says how to record it")
+    check(rows[2].icons and rows[2].icons[1].id == 2589 and rows[2].icons[1].n == 7, "items grid: bags hold Borin's 7 of item 2589")
+    check(view.drop.label.text:find("Borin Stonefist", 1, true) ~= nil, "items grid: the dropdown shows who")
+    view.search:SetText("zzz")
+    view.search.scripts.OnTextChanged(view.search)
+    check(#view.grid.data == 0 and view.hint.shown, "items grid: a search with no match says so")
+    view.search:SetText("")
+    view.search.scripts.OnTextChanged(view.search)
+    -- ALL CHARACTERS goes back to the search across everyone
+    view.drop.scripts.OnClick(view.drop)
+    local all
+    for _, r in ipairs(view.drop.list.rows) do if r.shown and r.entry and r.entry.key == false then all = r end end
+    all.scripts.OnClick(all)
+    check(view.list.shown and not view.grid.shown, "items grid: ALL CHARACTERS returns to the search")
+end
 ns.ShowUI("chars")
 RunTimers()
 check(true, "all views rendered without errors")

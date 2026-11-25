@@ -34,6 +34,9 @@
   A plan is also a level order: hover LEVEL ORDER for it, the next talent is outlined, and when you have
   points to spend a chat line names the next one (can be turned off in Options).
 - The Talents tab picks its character from a dropdown in the window's own style (name, level and class) instead of a row of names.
+- Items tab: a character dropdown. Pick someone to see their bags, bank, mail and gear as icon grids (quality borders,
+  stack counts, item tooltips, Shift-click to link), each section saying when it was recorded or what to open to record
+  it. *ALL CHARACTERS* is the search across everyone, as before.
 - wowdb.dev's running glow: a line of gold light runs around a box's border on hover, on every button, tab,
   search box and talent. The open tab keeps glowing. The next talent in a plan glows all the time, brighter and
   thicker, **in the game's own talent window too** (Options → Talents → Show the plan in the talent window).

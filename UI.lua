@@ -315,6 +315,133 @@ local function OnlyChip(view)
     return b
 end
 
+---- The character dropdown: a box showing the choice, a list dropping from it in the window's
+---- own look (a row per choice, the chosen one marked in gold). A click elsewhere or Esc closes it.
+---- Choices are { key, c = character or nil, label, info }; onPick(choice) runs on a click.
+
+local CLASS_NAME = function(c) return LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class or "" end
+
+-- Characters as choices: coloured name, then level and class
+function ns.CharChoices(chars, allLabel, allInfo)
+    local list = {}
+    if allLabel then list[1] = { key = false, label = allLabel, info = allInfo or "" } end
+    for _, c in ipairs(chars) do
+        list[#list + 1] = {
+            key = c.key, c = c,
+            label = ns.ColorName(c) .. (c == ns.me and "  |cff969db3· you|r" or ""),
+            info = (c.level or "?") .. " " .. CLASS_NAME(c),
+        }
+    end
+    return list
+end
+
+function ns.CharDropdown(parent, onPick)
+    local ROW, MAXROWS = 24, 12
+    local drop = CreateFrame("Button", nil, parent)
+    drop:SetSize(260, 24)
+    local bg = drop:CreateTexture(nil, "BACKGROUND"); T.Fill(bg, C.raised); bg:SetAllPoints()
+    T.Border(drop, C.border)
+    drop.label = T.Text(drop, T.monoMedium, 11, C.primary)
+    drop.label:SetPoint("LEFT", 10, 0)
+    drop.label:SetPoint("RIGHT", -24, 0)
+    drop.arrow = T.Text(drop, T.mono, 11, C.muted, "RIGHT")
+    drop.arrow:SetPoint("RIGHT", -9, 0)
+    drop.arrow:SetText("▾")
+    drop:SetScript("OnEnter", function(b) b.arrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end)
+    drop:SetScript("OnLeave", function(b) b.arrow:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
+    drop.hoverGlow = false
+    T.HoverGlow(drop)
+    drop.choices, drop.value = {}, false
+
+    local list = CreateFrame("Frame", nil, drop)
+    list:SetFrameStrata("DIALOG")
+    list:SetPoint("TOPLEFT", drop, "BOTTOMLEFT", 0, -2)
+    local lbg = list:CreateTexture(nil, "BACKGROUND"); T.Fill(lbg, C.deep); lbg:SetAllPoints()
+    T.Border(list, C.accent)
+    list:Hide()
+    list:EnableMouse(true)
+    list:EnableMouseWheel(true)
+    list.rows, list.offset = {}, 0
+    drop.list = list
+
+    function list.Fill(l)
+        local all = drop.choices
+        local shown = math.min(#all, MAXROWS)
+        l.offset = math.max(0, math.min(l.offset, #all - shown))
+        l:SetSize(math.max(drop:GetWidth(), 240), shown * ROW + 4)
+        for i = 1, shown do
+            local r = l.rows[i]
+            if not r then
+                r = CreateFrame("Button", nil, l)
+                r:SetHeight(ROW)
+                r:SetPoint("TOPLEFT", 2, -2 - (i - 1) * ROW)
+                r:SetPoint("TOPRIGHT", -2, -2 - (i - 1) * ROW)
+                r.hover = r:CreateTexture(nil, "BACKGROUND"); T.Fill(r.hover, C.raised); r.hover:SetAllPoints(); r.hover:Hide()
+                r.mark = r:CreateTexture(nil, "ARTWORK"); T.Fill(r.mark, C.accent)
+                r.mark:SetPoint("TOPLEFT"); r.mark:SetPoint("BOTTOMLEFT"); r.mark:SetWidth(2)
+                r.name = T.Text(r, T.monoMedium, 11, C.primary)
+                r.name:SetPoint("LEFT", 10, 0)
+                r.info = T.Text(r, T.mono, 10, C.muted, "RIGHT")
+                r.info:SetPoint("RIGHT", -8, 0)
+                r.name:SetPoint("RIGHT", r.info, "LEFT", -8, 0)
+                r.ch, r.entry = false, false
+                r:SetScript("OnEnter", function(b) b.hover:Show() end)
+                r:SetScript("OnLeave", function(b) b.hover:Hide() end)
+                r:SetScript("OnClick", function(b)
+                    if not b.entry then return end
+                    list:Hide()
+                    drop:SetChoices(drop.choices, b.entry.key)
+                    onPick(b.entry)
+                end)
+                l.rows[i] = r
+            end
+            local e = all[i + l.offset]
+            r.entry, r.ch = e, e.c or false
+            r.name:SetText(e.label)
+            r.info:SetText(e.info or "")
+            local on = e.key == drop.value
+            r.mark:SetShown(on)
+            local col = on and C.accent or C.muted
+            r.info:SetTextColor(col[1], col[2], col[3])
+            r:Show()
+        end
+        for i = shown + 1, #l.rows do l.rows[i]:Hide(); l.rows[i].ch, l.rows[i].entry = false, false end
+    end
+    list:SetScript("OnMouseWheel", function(l, delta) l.offset = l.offset - delta; l:Fill() end)
+    list:SetScript("OnUpdate", function(l)
+        if (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))
+            and not l:IsMouseOver() and not drop:IsMouseOver() then l:Hide() end
+    end)
+    list:SetScript("OnKeyDown", function(l, key)
+        if key == "ESCAPE" then l:SetPropagateKeyboardInput(false); l:Hide()
+        else l:SetPropagateKeyboardInput(true) end
+    end)
+    list:SetScript("OnShow", function(l) l:EnableKeyboard(true) end)
+    list:SetScript("OnHide", function(l) l:EnableKeyboard(false); drop.arrow:SetText("▾") end)
+    drop:SetScript("OnClick", function(b)
+        if list:IsShown() then list:Hide(); return end
+        list.offset = 0
+        list:Fill()
+        list:Show()
+        b.arrow:SetText("▴")
+    end)
+    parent:HookScript("OnHide", function() list:Hide() end)
+
+    -- The choices, and which is chosen (its key; false is an "all" entry)
+    function drop:SetChoices(choices, value)
+        self.choices, self.value = choices, value or false
+        local chosen
+        for _, e in ipairs(choices) do if e.key == self.value then chosen = e end end
+        chosen = chosen or choices[1]
+        if not chosen then self.label:SetText(""); return end
+        self.label:SetText(chosen.label .. (chosen.info ~= "" and ("  |cff969db3" .. chosen.info .. "|r") or ""))
+        local w = self.label:GetStringWidth()
+        self:SetWidth(math.max(200, math.min(320, (w and w > 0 and w or 180) + 44)))
+        if list:IsShown() then list:Fill() end
+    end
+    return drop
+end
+
 ---- Items ----------------------------------------------------------------------
 
 local function ItemInfo(id)
@@ -354,16 +481,182 @@ local function Inventory(onlyKey)
     return all
 end
 
+---- One character's inventory as a grid: a section per place (bags, bank, mail, gear), each a
+---- heading saying how fresh it is, then rows of item icons sorted by quality and name.
+---- The grid rides on the virtual list: each list row is a heading or a row of icons.
+
+local CELL, ICON, MAXCOLS = 44, 38, 30
+
+-- The link a character's gear slot was saved with, so a tooltip shows its suffix
+local function GearLinks(c)
+    local links = {}
+    for _, v in pairs(c.gear or {}) do
+        if type(v) == "string" then
+            local id = tonumber(v:match("item:(%d+)"))
+            if id then links[id] = v end
+        end
+    end
+    return links
+end
+
+local function GridSections(c, query)
+    local mail = c.mail
+    local function Age(t) return (c == ns.me and "now") or ns.Ago(t) end
+    local bagsInfo = c.bagSlots and ((c.bagSlots - (c.bagFree or 0)) .. " / " .. c.bagSlots .. " slots used") or ""
+    if c.lastSeen or c == ns.me then bagsInfo = bagsInfo .. "   ·   " .. Age(c.lastSeen) end
+    local mailInfo
+    if mail and mail.seen then
+        local parts = { (mail.letters or 0) .. " letter" .. (mail.letters == 1 and "" or "s") .. " with items or gold" }
+        if (mail.money or 0) > 0 then parts[#parts + 1] = ns.Money(mail.money, true) end
+        local left = ns.MailLeft(c)
+        if left then parts[#parts + 1] = left > 0 and ("first expires in " .. ns.Duration(left)) or "may have expired" end
+        parts[#parts + 1] = "recorded " .. ns.Ago(mail.seen)
+        mailInfo = table.concat(parts, "   ·   ")
+    end
+    local sections = {
+        { title = "BAGS", items = c.bags, info = bagsInfo },
+        { title = "BANK", items = c.bank, info = c.bankSeen and ("recorded " .. ns.Ago(c.bankSeen)),
+          missing = "Not recorded yet: open a bank on " .. c.name .. "." },
+        { title = "MAIL", items = mail and mail.items, info = mailInfo,
+          missing = "Not recorded yet: open a mailbox on " .. c.name .. "." },
+        { title = "EQUIPPED", items = c.equipped, info = "" },
+    }
+    local gear = GearLinks(c)
+    for _, sec in ipairs(sections) do
+        local list = {}
+        for id, n in pairs(sec.items or {}) do
+            local name, quality, icon, link = ItemInfo(id)
+            if query == "" or (name and name:lower():find(query, 1, true)) then
+                list[#list + 1] = { id = id, n = n, name = name or "", quality = quality or 1, icon = icon, link = gear[id] or link }
+            end
+        end
+        table.sort(list, function(a, b)
+            if a.quality ~= b.quality then return a.quality > b.quality end
+            if a.name ~= b.name then return a.name < b.name end
+            return a.id < b.id
+        end)
+        sec.list = list
+        if sec.title == "EQUIPPED" then sec.info = #list .. " item" .. (#list == 1 and "" or "s") end
+    end
+    return sections
+end
+
+-- The sections as list rows for a grid of cols columns
+local function GridRows(sections, cols, query)
+    local rows = {}
+    for _, sec in ipairs(sections) do
+        local recorded = sec.items ~= nil and sec.info ~= nil
+        if query == "" or #sec.list > 0 then
+            local info = sec.info
+            if not recorded then info = sec.missing
+            elseif #sec.list == 0 then info = (info ~= "" and (info .. "   ·   ") or "") .. "empty" end
+            rows[#rows + 1] = { head = sec.title, info = info, count = #sec.list, missing = not recorded }
+            for i = 1, #sec.list, cols do
+                local icons = {}
+                for k = i, math.min(i + cols - 1, #sec.list) do icons[#icons + 1] = sec.list[k] end
+                rows[#rows + 1] = { icons = icons }
+            end
+        end
+    end
+    return rows
+end
+
 local function BuildItems(view)
     view.search = T.SearchBox(view, "Search bags, bank, gear and mail", function(text)
         view.query = text
         view:Refresh()
     end)
-    view.search:SetPoint("TOPLEFT", 0, 0)
     view.search:SetWidth(360)
 
-    -- "Only Name ×": the character filter set from the Characters view
-    view.only = OnlyChip(view)
+    -- Whose items: everyone (the search) or one character (their bags, bank, mail and gear)
+    view.drop = ns.CharDropdown(view, function(entry)
+        filterKey = entry.key or nil
+        view:Refresh()
+    end)
+    view.drop:SetPoint("TOPLEFT", 0, 0)
+    view.gridKey = false
+    view.search:SetPoint("LEFT", view.drop, "RIGHT", 10, 0)
+
+    -- One character: the grid
+    view.grid = ns.CreateList(view, CELL, function(row)
+        row.head = T.Text(row, T.display, 13, C.primary)
+        row.head:SetPoint("BOTTOMLEFT", 4, 8)
+        row.info = T.Text(row, T.mono, 10, C.muted)
+        row.info:SetPoint("LEFT", row.head, "RIGHT", 12, 0)
+        row.info:SetPoint("RIGHT", -12, 0)
+        row.line = T.Line(row, C.divider)
+        row.line:SetPoint("BOTTOMLEFT", 0, 2); row.line:SetPoint("BOTTOMRIGHT", -8, 2)
+        row.cells = {}
+        for i = 1, MAXCOLS do
+            local b = CreateFrame("Button", nil, row)
+            b:SetSize(ICON, ICON)
+            b:SetPoint("LEFT", 4 + (i - 1) * CELL, 0)
+            b.icon = b:CreateTexture(nil, "ARTWORK")
+            b.icon:SetPoint("TOPLEFT", 1, -1); b.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+            b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+            b.edges = {}
+            for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", false }, { "BOTTOMLEFT", "BOTTOMRIGHT", false },
+                                    { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
+                local t = b:CreateTexture(nil, "OVERLAY")
+                t:SetPoint(side[1]); t:SetPoint(side[2])
+                if side[3] then t:SetWidth(1) else t:SetHeight(1) end
+                b.edges[#b.edges + 1] = t
+            end
+            b.count = T.Text(b, T.monoMedium, 11, C.primary, "RIGHT")
+            b.count:SetPoint("BOTTOMRIGHT", -2, 2)
+            b.count:SetShadowOffset(1, -1)
+            b.entry = false
+            b:SetScript("OnEnter", function(self)
+                local e = self.entry
+                if not e then return end
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                if e.link then GameTooltip:SetHyperlink(e.link) else GameTooltip:SetItemByID(e.id) end
+                GameTooltip:Show()
+            end)
+            b:SetScript("OnLeave", GameTooltip_Hide)
+            b:SetScript("OnClick", function(self)
+                local e = self.entry
+                if e and e.link then HandleModifiedItemClick(e.link) end
+            end)
+            b.hoverGlow = false
+            T.HoverGlow(b)
+            row.cells[i] = b
+        end
+    end, function(row, r)
+        local isHead = r.head ~= nil
+        row.head:SetShown(isHead); row.info:SetShown(isHead); row.line:SetShown(isHead)
+        if isHead then
+            row.head:SetText(r.head .. (r.count > 0 and ("  |cff969db3" .. r.count .. "|r") or ""))
+            row.info:SetText(r.info or "")
+            local c = r.missing and C.place or C.muted
+            row.info:SetTextColor(c[1], c[2], c[3])
+        end
+        for i, b in ipairs(row.cells) do
+            local e = not isHead and r.icons[i]
+            b.entry = e or false
+            if e then
+                b.icon:SetTexture(e.icon or 134400)
+                local q = e.quality or 1
+                local col = C.border
+                if q >= 2 then
+                    local qr, qg, qb = C_Item.GetItemQualityColor(q)
+                    if type(qr) == "number" then col = { qr, qg, qb, 0.9 } end
+                end
+                for _, t in ipairs(b.edges) do T.Fill(t, col) end
+                b.count:SetText(e.n > 1 and ns.Commas(e.n) or "")
+                b:Show()
+            else
+                b:Hide()
+            end
+        end
+    end)
+    view.grid:SetPoint("TOPLEFT", 0, -34)
+    view.grid:SetPoint("BOTTOMRIGHT")
+    view.grid:Hide()
+    -- The number of columns follows the window's width
+    view:SetScript("OnSizeChanged", function()
+        if view:IsShown() and FilterChar() then view:Refresh() end
+    end)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
     view.hint:SetPoint("TOPLEFT", PAD, -120)
@@ -409,7 +702,36 @@ local function BuildItems(view)
 
     function view:Refresh()
         local query = (self.query or ""):lower()
-        local onlyChar = self.only:Update()
+        local onlyChar = FilterChar()
+
+        local chars = ns:Characters()
+        table.sort(chars, function(a, b)
+            if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+            return a.name < b.name
+        end)
+        self.drop:SetChoices(ns.CharChoices(chars, "ALL CHARACTERS", "search everyone"), onlyChar and onlyChar.key)
+
+        self.grid:SetShown(onlyChar ~= nil)
+        self.list:SetShown(onlyChar == nil)
+        if onlyChar then
+            local w = self.grid:GetWidth()
+            if not w or w <= 0 then w = W - PAD * 2 end
+            local cols = math.max(1, math.min(MAXCOLS, math.floor((w - 12) / CELL)))
+            local sections = GridSections(onlyChar, query)
+            local rows = GridRows(sections, cols, query)
+            self.grid:SetData(rows, self.gridKey == onlyChar.key)
+            self.gridKey = onlyChar.key
+            local counts = {}
+            for _, sec in ipairs(sections) do
+                if #sec.list > 0 then counts[#counts + 1] = #sec.list .. " " .. sec.title:lower() end
+            end
+            self.hint:SetShown(query ~= "" and #rows == 0)
+            self.hint:SetText("Nothing matches \"" .. (self.query or "") .. "\" on " .. onlyChar.name .. ".")
+            SetFooter(onlyChar.name .. ":  " .. (#counts > 0 and table.concat(counts, " · ") or "nothing recorded")
+                .. "   ·   Shift-click links an item in chat")
+            return
+        end
+        self.gridKey = false
 
         if query == "" and not onlyChar then
             self.list:SetData({})
@@ -1544,114 +1866,17 @@ local function BuildTalents(view)
             self.group = false
         end
 
-        -- The character picker: a dropdown showing who's drawn, listing everyone recorded
-        local drop = self.charDrop
-        if not drop then
-            drop = CreateFrame("Button", nil, self)
-            drop:SetSize(260, 24)
-            drop:SetPoint("TOPLEFT", 0, 0)
-            local bg = drop:CreateTexture(nil, "BACKGROUND"); T.Fill(bg, C.raised); bg:SetAllPoints()
-            T.Border(drop, C.border)
-            drop.label = T.Text(drop, T.monoMedium, 11, C.primary)
-            drop.label:SetPoint("LEFT", 10, 0)
-            drop.label:SetPoint("RIGHT", -24, 0)
-            drop.arrow = T.Text(drop, T.mono, 11, C.muted, "RIGHT")
-            drop.arrow:SetPoint("RIGHT", -9, 0)
-            drop.arrow:SetText("▾")
-            drop:SetScript("OnEnter", function(b) b.arrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end)
-            drop:SetScript("OnLeave", function(b) b.arrow:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
-            drop.hoverGlow = false
-            T.HoverGlow(drop)
-            drop.chars = {}
-
-            -- The list drops from the box, in the window's own look: a row per character,
-            -- the shown one marked in gold. A click anywhere else, or Esc, closes it.
-            local ROW, MAXROWS = 24, 12
-            local list = CreateFrame("Frame", nil, drop)
-            list:SetFrameStrata("DIALOG")
-            list:SetPoint("TOPLEFT", drop, "BOTTOMLEFT", 0, -2)
-            local lbg = list:CreateTexture(nil, "BACKGROUND"); T.Fill(lbg, C.deep); lbg:SetAllPoints()
-            T.Border(list, C.accent)
-            list:Hide()
-            list:EnableMouse(true)
-            list:EnableMouseWheel(true)
-            list.rows, list.offset = {}, 0
-            drop.list = list
-
-            local function Pick(ch)
-                list:Hide()
-                self.pick, self.group = ch.key, false
+        -- The character picker
+        if not self.charDrop then
+            self.charDrop = ns.CharDropdown(self, function(entry)
+                self.pick, self.group = entry.key, false
                 box:Hide()
                 self:Refresh()
-            end
-            function list.Fill(l)
-                local all = drop.chars
-                local shown = math.min(#all, MAXROWS)
-                l.offset = math.max(0, math.min(l.offset, #all - shown))
-                l:SetSize(math.max(drop:GetWidth(), 240), shown * ROW + 4)
-                for i = 1, shown do
-                    local r = l.rows[i]
-                    if not r then
-                        r = CreateFrame("Button", nil, l)
-                        r:SetHeight(ROW)
-                        r:SetPoint("TOPLEFT", 2, -2 - (i - 1) * ROW)
-                        r:SetPoint("TOPRIGHT", -2, -2 - (i - 1) * ROW)
-                        r.hover = r:CreateTexture(nil, "BACKGROUND"); T.Fill(r.hover, C.raised); r.hover:SetAllPoints(); r.hover:Hide()
-                        r.mark = r:CreateTexture(nil, "ARTWORK"); T.Fill(r.mark, C.accent)
-                        r.mark:SetPoint("TOPLEFT"); r.mark:SetPoint("BOTTOMLEFT"); r.mark:SetWidth(2)
-                        r.name = T.Text(r, T.monoMedium, 11, C.primary)
-                        r.name:SetPoint("LEFT", 10, 0)
-                        r.info = T.Text(r, T.mono, 10, C.muted, "RIGHT")
-                        r.info:SetPoint("RIGHT", -8, 0)
-                        r.name:SetPoint("RIGHT", r.info, "LEFT", -8, 0)
-                        r.ch = false
-                        r:SetScript("OnEnter", function(b) b.hover:Show() end)
-                        r:SetScript("OnLeave", function(b) b.hover:Hide() end)
-                        r:SetScript("OnClick", function(b) if b.ch then Pick(b.ch) end end)
-                        l.rows[i] = r
-                    end
-                    local ch = all[i + l.offset]
-                    r.ch = ch
-                    r.name:SetText(ns.ColorName(ch) .. (ch == ns.me and "  |cff969db3· you|r" or ""))
-                    r.info:SetText((ch.level or "?") .. " " .. (LOCALIZED_CLASS_NAMES_MALE[ch.class] or ch.class or ""))
-                    local on = ch.key == l.owner.pick
-                    r.mark:SetShown(on)
-                    local col = on and C.accent or C.muted
-                    r.info:SetTextColor(col[1], col[2], col[3])
-                    r:Show()
-                end
-                for i = shown + 1, #l.rows do l.rows[i]:Hide(); l.rows[i].ch = false end
-            end
-            list.owner = self
-            list:SetScript("OnMouseWheel", function(l, delta) l.offset = l.offset - delta; l:Fill() end)
-            list:SetScript("OnUpdate", function(l)
-                if (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))
-                    and not l:IsMouseOver() and not drop:IsMouseOver() then l:Hide() end
             end)
-            list:SetScript("OnKeyDown", function(l, key)
-                if key == "ESCAPE" then l:SetPropagateKeyboardInput(false); l:Hide()
-                else l:SetPropagateKeyboardInput(true) end
-            end)
-            list:SetScript("OnShow", function(l) l:EnableKeyboard(true) end)
-            list:SetScript("OnHide", function(l) l:EnableKeyboard(false); drop.arrow:SetText("▾") end)
-            drop:SetScript("OnClick", function(b)
-                if list:IsShown() then list:Hide(); return end
-                list.offset = 0
-                list:Fill()
-                list:Show()
-                b.arrow:SetText("▴")
-            end)
-            view:HookScript("OnHide", function() list:Hide() end)
-            self.charDrop = drop
+            self.charDrop:SetPoint("TOPLEFT", 0, 0)
         end
-        drop.chars = chars
-        drop:SetShown(c and true or false)
-        if c then
-            local class = LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class or ""
-            drop.label:SetText(ns.ColorName(c) .. "  |cff969db3" .. (c.level or "?") .. " " .. class .. "|r")
-            local w = drop.label:GetStringWidth()
-            drop:SetWidth(math.max(200, math.min(320, (w and w > 0 and w or 180) + 44)))
-        end
+        self.charDrop:SetChoices(ns.CharChoices(chars), c and c.key)
+        self.charDrop:SetShown(c and true or false)
 
         local t = c and not legacy and c.talents
         -- A plan is drawn on the active spec's trees
