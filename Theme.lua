@@ -180,10 +180,15 @@ end
 -- while it shows. glow:SetActive(on); glow:SetTarget(frame) moves it onto another frame.
 local GLOW_LAP, GLOW_FADE, GLOW_SEGS, GLOW_COMETS, GLOW_LEN = 4.4, 0.3, 10, 2, 0.16
 
-function T.Glow(owner, parent)
+function T.Glow(owner, parent, inset)
     local g = CreateFrame("Frame", nil, parent or owner)
     g:SetFrameLevel(owner:GetFrameLevel() + 6)
     g:SetAllPoints(owner)
+    if inset then  -- { x, y }: the ring sits that far inside the frame
+        g:ClearAllPoints()
+        g:SetPoint("TOPLEFT", owner, "TOPLEFT", inset[1], -inset[2])
+        g:SetPoint("BOTTOMRIGHT", owner, "BOTTOMRIGHT", -inset[1], inset[2])
+    end
     g:Hide()
     g.tint = g:CreateTexture(nil, "BACKGROUND")
     g.tint:SetColorTexture(1, 1, 1, 0.02)  -- wowdb's #ffffff05 under the cursor
@@ -261,10 +266,10 @@ function T.Glow(owner, parent)
 end
 
 -- The glow on hover, made the first time the pointer arrives. Call after the frame's own
--- OnEnter/OnLeave are set: SetScript would replace the hooks.
-function T.HoverGlow(frame)
+-- OnEnter/OnLeave are set: SetScript would replace the hooks. inset as for T.Glow.
+function T.HoverGlow(frame, inset)
     frame:HookScript("OnEnter", function(self)
-        self.hoverGlow = self.hoverGlow or T.Glow(self)
+        self.hoverGlow = self.hoverGlow or T.Glow(self, nil, inset)
         self.hoverGlow:SetActive(true)
     end)
     frame:HookScript("OnLeave", function(self)

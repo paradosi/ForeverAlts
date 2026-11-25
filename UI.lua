@@ -1852,6 +1852,9 @@ local function Build()
         b.underline:SetHeight(2)
         b.underline:SetPoint("BOTTOMLEFT", 8, 0); b.underline:SetPoint("BOTTOMRIGHT", -8, 0)
         b:SetScript("OnClick", function() Select(t.key) end)
+        -- wowdb's running glow on hover, a box around the label clear of the underline
+        b.hoverGlow = false
+        T.HoverGlow(b, { 2, 7 })
 
         local v = CreateFrame("Frame", nil, frame)
         v:SetPoint("TOPLEFT", PAD, -(HEAD + TABS + 12))
