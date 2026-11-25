@@ -1127,13 +1127,20 @@ local function BuildTalents(view)
             node.row = rowOf[node.t] and rowOf[node.t](node.y)
             node.hidden = not (node.col and node.row)
             node.col, node.row = node.col or 0, node.row or 0
-            cols[node.t] = math.max(cols[node.t] or 1, node.col + 1)
-            rows = math.max(rows, node.row + 1)
+            -- Only talents that are drawn size the grid: a hidden one can still be far out on one axis
+            if not node.hidden then
+                cols[node.t] = math.max(cols[node.t] or 1, node.col + 1)
+                rows = math.max(rows, node.row + 1)
+            end
         end
         local maxCols = 4
         for _, c in pairs(cols) do maxCols = math.max(maxCols, c) end
-        local cell = math.floor(math.min((panelW - 16) / maxCols, (panelH - gridTop - 8) / rows))
-        local size = math.max(16, math.floor(cell * 0.7))
+        -- As big as the panel allows, up to a cap so a huge window doesn't give huge icons
+        local cell = math.floor(math.min((panelW - 16) / maxCols, (panelH - gridTop - 12) / rows, 104))
+        local size = math.max(16, math.floor(cell * 0.78))
+        local rankSize = math.max(9, math.min(13, math.floor(cell * 0.15)))
+        -- Centred in the panel both ways
+        local gridY = gridTop + math.max(0, math.floor((panelH - gridTop - 12 - rows * cell) / 2))
 
         for i = 1, math.max(n, #self.panels) do
             local p = i <= n and Panel(i) or self.panels[i]
@@ -1161,7 +1168,8 @@ local function BuildTalents(view)
                 b.node = node
                 b:SetSize(size, size)
                 b:ClearAllPoints()
-                b:SetPoint("CENTER", p, "TOPLEFT", p.left + (node.col + 0.5) * cell, -(gridTop + (node.row + 0.5) * cell))
+                b:SetPoint("CENTER", p, "TOPLEFT", p.left + (node.col + 0.5) * cell, -(gridY + (node.row + 0.5) * cell))
+                b.rank:SetFont(T.mono, rankSize, "")
                 b.icon:SetTexture(node.i)
                 local on = node.r > 0
                 b.icon:SetDesaturated(not on)
