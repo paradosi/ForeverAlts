@@ -21,7 +21,8 @@ function ns.CreateList(parent, rowHeight, build, update)
     thumbTex:SetAllPoints()
     thumb:EnableMouse(true)
 
-    local function Visible() return #list.rows end
+    list.count = 0  -- rows that fit the current height; list.rows may hold more, hidden
+    local function Visible() return list.count end
     local function MaxOffset() return math.max(0, #list.data - Visible()) end
 
     local function PlaceThumb()
@@ -39,7 +40,7 @@ function ns.CreateList(parent, rowHeight, build, update)
     function list:Render()
         for i, row in ipairs(self.rows) do
             local index = self.offset + i
-            local item = self.data[index]
+            local item = i <= self.count and self.data[index]
             if item then
                 row.item = item
                 update(row, item, index)
@@ -84,9 +85,10 @@ function ns.CreateList(parent, rowHeight, build, update)
         if new ~= list.offset then list.offset = new; list:Render() end
     end)
 
-    -- Rows fill the height the list is given
+    -- Rows fill the height the list is given. Resizing the window changes the
+    -- height: extra rows are made once and kept (hidden) if it shrinks again.
     list:SetScript("OnSizeChanged", function(self, _, h)
-        local want = math.floor(h / rowHeight)
+        local want = math.max(0, math.floor(h / rowHeight))
         for i = #self.rows + 1, want do
             local row = CreateFrame("Button", nil, self)
             row:SetHeight(rowHeight)
@@ -101,9 +103,9 @@ function ns.CreateList(parent, rowHeight, build, update)
             line:SetPoint("BOTTOMLEFT"); line:SetPoint("BOTTOMRIGHT")
             build(row)
             self.rows[i] = row
+            if self.layoutRow then self.layoutRow(row) end
         end
-        for i = want + 1, #self.rows do self.rows[i]:Hide() end
-        for i = #self.rows, want + 1, -1 do self.rows[i] = nil end
+        self.count = want
         self:SetData(self.data, true)
     end)
 

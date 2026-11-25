@@ -207,11 +207,11 @@ SlashCmdList.FOREVERALTS = function(msg)
     elseif cmd == "options" or cmd == "config" then
         ns.OpenOptions()
     elseif cmd == "reset" then
-        db.point = nil
+        db.point, db.size = nil, nil
         if ns.ResetPosition then ns.ResetPosition() end
-        ns.Say("window moved back to the middle.")
+        ns.Say("window back to its usual size, in the middle.")
     else
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts options · /alts reset (window position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts options · /alts reset (window size and position)")
     end
 end

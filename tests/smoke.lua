@@ -44,6 +44,8 @@ local methods = {
     GetHeight = function(self) return self.h end,
     GetWidth = function(self) return self.w end,
     GetTop = function() return 500 end,
+    GetFrameLevel = function() return 1 end,
+    GetNormalTexture = function() return NewWidget("Texture") end,
     GetEffectiveScale = function() return 1 end,
     GetPoint = function() return "CENTER", nil, "CENTER", 0, 0 end,
     CreateTexture = function() return NewWidget("Texture") end,
@@ -249,8 +251,12 @@ SlashCmdList.FOREVERALTS("profs")
 local function SizeLists() for _, f in ipairs(SIZED) do f.scripts.OnSizeChanged(f, 800, 300) end end
 SizeLists()
 local rendered = 0
-for _, f in ipairs(SIZED) do rendered = rendered + #f.rows end
+for _, f in ipairs(SIZED) do rendered = rendered + #(rawget(f, "rows") or {}) end
 check(rendered > 0, "list rows built: " .. rendered)
+-- Resizing: shrink every list to 3 rows, then grow it back; nothing may error
+for _, f in ipairs(SIZED) do f.scripts.OnSizeChanged(f, 1400, 80) end
+for _, f in ipairs(SIZED) do f.scripts.OnSizeChanged(f, 1400, 600) end
+check(true, "lists survive shrinking and growing")
 ns.ShowUI("chars")
 SlashCmdList.FOREVERALTS("items linen")
 SlashCmdList.FOREVERALTS("profs bolt")

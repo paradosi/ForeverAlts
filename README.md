@@ -40,7 +40,8 @@ From CurseForge or Wago once published. Until then, by hand:
 ## Usage
 
 Open the window with **`/alts`** or the addon compartment button (the puzzle-piece menu on the minimap).
-Escape closes it, and you can drag it by any empty spot.
+Escape closes it, and you can drag it by any empty spot. **Drag the gold grip in the bottom-right
+corner to resize it**: taller shows more rows, wider gives the Location column more room. Size and position are remembered.
 
 ### Filling it in
 
@@ -81,7 +82,7 @@ and lists everything they hold. Click the *ONLY …* chip to clear the filter.
 | `/alts items <text>` | Open the Items tab searching for `<text>` |
 | `/alts profs <text>` | Open the Professions tab searching recipes for `<text>` |
 | `/alts options` | Open the options panel |
-| `/alts reset` | Move the window back to the middle of the screen |
+| `/alts reset` | Put the window back to its usual size, in the middle of the screen |
 | `/alts help` | List the commands |
 
 To forget a character (deleted, or transferred away), right-click their row and choose **Forget this character**.
@@ -192,7 +193,7 @@ it, to learn the total.
 
 **A character I deleted is still listed.** Right-click it → *Forget this character*.
 
-**The window is off-screen.** `/alts reset`.
+**The window is off-screen, or sized oddly.** `/alts reset`.
 
 ## License
 

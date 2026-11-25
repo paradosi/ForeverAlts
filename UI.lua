@@ -5,7 +5,9 @@ local T = ns.T
 local C = T.C
 local PAD = T.PAD
 
-local W, H = 900, 520
+local W, H = 900, 520            -- default size
+local MIN_W, MIN_H = 880, 380     -- every Characters column still fits at MIN_W
+local MAX_W, MAX_H = 1800, 1200
 local HEAD, TABS, FOOT = 40, 34, 32
 local frame
 local views, current = {}, nil
@@ -83,13 +85,25 @@ local function CharacterMenu(row)
     end)
 end
 
+-- Every column keeps its width except LOCATION, which takes what the window has spare
+local FLEX, FLEX_MIN, GUTTER = "zone", 110, 8
+
+local function LayoutRow(row)
+    for i, col in ipairs(COLUMNS) do
+        local cell, inset = row.cells[i], i == 1 and 12 or 6
+        cell:ClearAllPoints()
+        cell:SetPoint("LEFT", col.x + inset, 0)
+        cell:SetWidth(col.w - inset - 6)
+    end
+    row.dot:ClearAllPoints()
+    row.dot:SetPoint("LEFT", COLUMNS[1].x + 4, 0)
+end
+
 local function BuildCharacters(view)
-    local x = 0
     view.headers = {}
     for _, col in ipairs(COLUMNS) do
         local h = CreateFrame("Button", nil, view)
-        h:SetSize(col.width, 20)
-        h:SetPoint("TOPLEFT", x, 0)
+        h:SetHeight(20)
         h.text = T.Text(h, T.display, 10, C.muted, col.justify)
         h.text:SetPoint(col.justify, col.justify == "LEFT" and 6 or -6, 0)
         h.text:SetText(col.label)
@@ -105,8 +119,6 @@ local function BuildCharacters(view)
         end)
         h.col = col
         view.headers[#view.headers + 1] = h
-        col.x = x
-        x = x + col.width
     end
     local line = T.Line(view, C.border)
     line:SetPoint("TOPLEFT", 0, -20); line:SetPoint("TOPRIGHT", 0, -20)
@@ -114,14 +126,9 @@ local function BuildCharacters(view)
     view.list = ns.CreateList(view, 26, function(row)
         row.cells = {}
         for i, col in ipairs(COLUMNS) do
-            local fs = T.Text(row, i == 1 and T.display or T.mono, i == 1 and 12 or 11, C.primary, col.justify)
-            fs:SetPoint("LEFT", col.x + 6, 0)
-            fs:SetWidth(col.width - 12)
-            row.cells[i] = fs
+            row.cells[i] = T.Text(row, i == 1 and T.display or T.mono, i == 1 and 12 or 11, C.primary, col.justify)
         end
         row.dot = T.Dot(row, 5)
-        row.dot:SetPoint("LEFT", COLUMNS[1].x + 4, 0)
-        row.cells[1]:SetPoint("LEFT", COLUMNS[1].x + 12, 0)
         row:SetScript("OnClick", function(self, button)
             if button == "RightButton" then CharacterMenu(self)
             elseif self.item then ns.ShowUI("items", "", self.item.key) end
@@ -150,6 +157,26 @@ local function BuildCharacters(view)
     end)
     view.list:SetPoint("TOPLEFT", 0, -24)
     view.list:SetPoint("BOTTOMRIGHT")
+    view.list.layoutRow = LayoutRow
+
+    -- Place the columns for the view's width: headers, then every row made so far
+    function view:Layout(width)
+        local fixed = 0
+        for _, col in ipairs(COLUMNS) do if col.key ~= FLEX then fixed = fixed + col.width end end
+        local x = 0
+        for i, col in ipairs(COLUMNS) do
+            col.x = x
+            col.w = col.key == FLEX and math.max(FLEX_MIN, width - GUTTER - fixed) or col.width
+            x = x + col.w
+            local h = self.headers[i]
+            h:ClearAllPoints()
+            h:SetPoint("TOPLEFT", col.x, 0)
+            h:SetWidth(col.w)
+        end
+        for _, row in ipairs(self.list.rows) do LayoutRow(row) end
+    end
+    view:Layout(W - PAD * 2)
+    view:SetScript("OnSizeChanged", function(self, w) self:Layout(w) end)
 
     function view:Refresh()
         local s = ns.settings
@@ -242,8 +269,8 @@ local function BuildItems(view)
     view.only:SetScript("OnClick", function() view.onlyKey = nil; view:Refresh() end)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
-    view.hint:SetPoint("TOP", 0, -120)
-    view.hint:SetWidth(W - PAD * 4)
+    view.hint:SetPoint("TOPLEFT", PAD, -120)
+    view.hint:SetPoint("TOPRIGHT", -PAD, -120)
     view.hint:SetWordWrap(true)
 
     view.list = ns.CreateList(view, 34, function(row)
@@ -336,8 +363,8 @@ local function BuildProfessions(view)
     view.search:SetWidth(360)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
-    view.hint:SetPoint("TOP", 0, -120)
-    view.hint:SetWidth(W - PAD * 4)
+    view.hint:SetPoint("TOPLEFT", PAD, -120)
+    view.hint:SetPoint("TOPRIGHT", -PAD, -120)
     view.hint:SetWordWrap(true)
 
     local BAR = 160
@@ -465,11 +492,15 @@ function ns.ResetPosition()
     if not frame then return end
     frame:ClearAllPoints()
     frame:SetPoint("CENTER")
+    frame:SetSize(W, H)
 end
 
 local function Build()
     frame = CreateFrame("Frame", "ForeverAltsFrame", UIParent)
-    frame:SetSize(W, H)
+    local size = ns.db.size
+    frame:SetSize(size and size[1] or W, size and size[2] or H)
+    frame:SetResizable(true)
+    frame:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
     frame:SetFrameStrata("HIGH")
     frame:SetToplevel(true)
     local p = ns.db.point
@@ -536,13 +567,35 @@ local function Build()
         prev = b
     end
 
+    -- Resize grip in the bottom-right corner: Blizzard's chat-window grabber, tinted gold
+    local grip = CreateFrame("Button", nil, frame)
+    grip:SetSize(16, 16)
+    grip:SetPoint("BOTTOMRIGHT", -2, 2)
+    grip:SetFrameLevel(frame:GetFrameLevel() + 10)
+    grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
+    grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    grip:GetNormalTexture():SetVertexColor(C.accent[1], C.accent[2], C.accent[3], 0.8)
+    grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+    grip:SetScript("OnMouseUp", function()
+        frame:StopMovingOrSizing()
+        ns.db.size = { math.floor(frame:GetWidth() + 0.5), math.floor(frame:GetHeight() + 0.5) }
+        SavePosition()  -- sizing re-anchors the frame; keep where it ended up
+    end)
+
     frame.footer = T.Text(frame, T.mono, 10, C.muted)
     frame.footer:SetPoint("LEFT", frame, "BOTTOMLEFT", PAD, FOOT / 2)
     local version = T.Text(frame, T.mono, 10, C.muted, "RIGHT")
-    version:SetPoint("RIGHT", frame, "BOTTOMRIGHT", -PAD, FOOT / 2)
+    version:SetPoint("RIGHT", frame, "BOTTOMRIGHT", -PAD - 14, FOOT / 2)
     version:SetText("v" .. (C_AddOns.GetAddOnMetadata(ns.name, "Version") or "?") .. "   /alts")
 
+    -- The fonts are surely loaded once the window is on screen: size the tabs to their labels
+    local function FitTabs()
+        for _, t in ipairs(TABS_DEF) do views[t.key].tab:Fit() end
+    end
     frame:SetScript("OnShow", function()
+        FitTabs()
+        C_Timer.After(0, FitTabs)
         PlaySound(SOUNDKIT.IG_CHARACTER_INFO_OPEN)
         if current then views[current]:Refresh() end
     end)
