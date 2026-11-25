@@ -2139,6 +2139,11 @@ local function BuildArmory(view)
     ns:On("UNIT_MODEL_CHANGED", function(unit) if unit == "player" then model.loaded = false end end)
     ns:On("PLAYER_EQUIPMENT_CHANGED", function() model.loaded = false end)
 
+    view.stats.hint = T.Text(view.stats, T.mono, 10, C.place)
+    view.stats.hint:SetPoint("TOPLEFT", 12, -10)
+    view.stats.hint:SetPoint("TOPRIGHT", -12, -10)
+    view.stats.hint:SetWordWrap(true)
+
     local function StatLine(i)
         local l = view.stats.lines[i]
         if l then return l end
@@ -2153,7 +2158,7 @@ local function BuildArmory(view)
 
     local function Pct(v) return v and string.format("%.2f%%", v) or "—" end
     local function N(v) return v and ns.Commas(v) or "—" end
-    local POWER = { MANA = "Mana", RAGE = "Rage", ENERGY = "Energy", FOCUS = "Focus" }
+    local POWER = { MANA = "Mana" }
 
     local function StatRows(c)
         local st = c.stats
@@ -2170,7 +2175,8 @@ local function BuildArmory(view)
             { "Ranged AP", N(st.rap) }, { "Ranged crit", Pct(st.rcrit) },
             { "Spell damage", N(st.spell) }, { "Healing", N(st.heal) }, { "Spell crit", Pct(st.scrit) },
         }
-        if st.power and st.powerType and POWER[st.powerType] then
+        -- Mana only: rage and energy always top out at 100
+        if st.power and st.powerType == "MANA" then
             table.insert(rows, 9, { POWER[st.powerType], N(st.power) })
         end
         local res = {}
@@ -2249,18 +2255,28 @@ local function BuildArmory(view)
         else
             self.modelHint:SetText("The model shows for the character you're logged in on")
         end
-        local raceAtlas = c.raceFile and GetRaceAtlas and GetRaceAtlas(c.raceFile:lower(), c.sex == 3 and "female" or "male", true)
+        -- The race crest needs the race and the sex (its face is a man's or a woman's): both are
+        -- saved at login, so an alt not logged in since gets the class crest alone, large
+        local race = c.raceFile or (c.race and c.race:gsub("%s+", ""))
+        local raceAtlas = race and c.sex and GetRaceAtlas(race:lower(), c.sex == 3 and "female" or "male", true)
         local hasRace = raceAtlas and C_Texture.GetAtlasInfo(raceAtlas) ~= nil
         self.crest:SetShown(not live and hasRace)
         if hasRace then self.crest:SetAtlas(raceAtlas) end
-        local classAtlas = c.class and GetClassAtlas and GetClassAtlas(c.class:lower())
-        local hasClass = classAtlas and C_Texture.GetAtlasInfo(classAtlas) ~= nil
-        self.classCrest:SetShown(not live and hasClass)
-        if hasClass then
-            self.classCrest:SetAtlas(classAtlas)
-            if not hasRace then self.classCrest:ClearAllPoints(); self.classCrest:SetSize(96, 96); self.classCrest:SetPoint("CENTER", self.crest) end
+        -- The class crest: Blizzard's round class icons, as their portrait frames use
+        local coords = c.class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[c.class]
+        self.classCrest:SetShown(not live and coords ~= nil)
+        if coords then
+            self.classCrest:SetTexture("Interface\\TargetingFrame\\UI-Classes-Circles")
+            self.classCrest:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+            self.classCrest:ClearAllPoints()
+            if hasRace then
+                self.classCrest:SetSize(48, 48)
+                self.classCrest:SetPoint("CENTER", self.crest, "BOTTOMRIGHT", -12, 12)
+            else
+                self.classCrest:SetSize(128, 128)
+                self.classCrest:SetPoint("CENTER", self.crest)
+            end
         end
-        if hasRace then self.classCrest:ClearAllPoints(); self.classCrest:SetSize(44, 44); self.classCrest:SetPoint("CENTER", self.crest, "BOTTOMRIGHT", -14, 14) end
 
         -- Summary across the top
         local bits = {}
@@ -2288,15 +2304,9 @@ local function BuildArmory(view)
                 end
                 l.label:Show(); l.value:Show()
             end
-        else
-            used = 1
-            local l = StatLine(1)
-            l.label:SetFont(T.mono, 10, "")
-            l.label:SetTextColor(C.place[1], C.place[2], C.place[3])
-            l.label:SetText("Stats are recorded at login:\nlog in on " .. c.name .. " once.")
-            l.value:SetText("")
-            l.label:Show(); l.value:Show()
         end
+        self.stats.hint:SetShown(not rows)
+        self.stats.hint:SetText("Stats are recorded at login: log in on " .. c.name .. " once.")
         for i = used + 1, #self.stats.lines do self.stats.lines[i].label:Hide(); self.stats.lines[i].value:Hide() end
 
         SetFooter(c.name .. (c.stats and c.stats.seen and ("   ·   stats " .. (live and "live" or ("as of " .. ns.Ago(c.stats.seen)))) or "")

@@ -113,6 +113,7 @@ function GetGuildInfo() return "Night Watch", "Officer" end
 function InCombatLockdown() return false end
 function GetRaceAtlas(race, sex, hi) return (hi and "raceicon128-" or "raceicon-") .. race .. "-" .. sex end
 function GetClassAtlas(class) return "classicon-" .. class end
+CLASS_ICON_TCOORDS = { MAGE = { 0.25, 0.5, 0, 0.25 }, WARRIOR = { 0, 0.25, 0, 0.25 } }
 C_Texture = { GetAtlasInfo = function(name) return { name = name } end }
 function UnitFactionGroup() return "Alliance" end
 function UnitGUID() return "Player-4372-0A1B2C3D" end
@@ -767,10 +768,11 @@ do
     local text = {}
     for _, l in ipairs(view.stats.lines) do if l.label.shown then text[#text + 1] = l.label.text .. "=" .. l.value.text end end
     text = table.concat(text, ";")
-    check(text:find("Stamina=50", 1, true) and text:find("Mana=1,500", 1, true) and text:find("Frost resist=15", 1, true)
+    check(text:find("Stamina=50", 1, true) and text:find("Mana=1,500", 1, true) and not view.stats.hint.shown and text:find("Frost resist=15", 1, true)
         and text:find("Spell crit=7.25%", 1, true), "armory: the stats panel lists them")
     ns.ShowArmory("Dreamscythe|Borin Stonefist")
-    check(not view.model.shown and view.classCrest.shown and view.stats.lines[1].label.text:find("log in on Borin", 1, true),
+    check(not view.model.shown and view.classCrest.shown and view.stats.hint.shown and view.stats.hint.text:find("log in on Borin", 1, true)
+        and not view.stats.lines[1].label.shown,
         "armory: an alt gets the crest, and a hint where stats are missing")
 end
 ns.ShowUI("chars")
