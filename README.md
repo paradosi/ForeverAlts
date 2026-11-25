@@ -78,7 +78,8 @@ Hovering a row shows the item's tooltip; Shift-click links it in chat.
 The same answer shows up on the item's own tooltip as *Made by Aelin (Tailoring)*.
 
 **"What's on my banker alt?"** Click their row on the Characters tab. The Items tab opens filtered to that character
-and lists everything they hold. Click the *ONLY …* chip to clear the filter.
+and lists everything they hold. The filter stays on when you switch to the Reputation tab, which then shows only their
+standings. Click the *ONLY …* chip on either tab to clear it. Right-clicking a character also offers *Show reputation*.
 
 **"Who's fully rested?"** Click the *RESTED* heading to sort. 150% (shown in gold) is the cap.
 

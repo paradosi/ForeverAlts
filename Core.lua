@@ -185,6 +185,13 @@ ns:On("ADDON_LOADED", function(name)
     db.warband = db.warband or {}   -- the account bank, shared by every character: { items, seen }
     db.factions = db.factions or {} -- factionID -> { name, group, order }
     db.groups  = db.groups or {}    -- reputation header -> its place in the list
+    -- Before 2026-11-25 an empty gear slot was saved as item 0 (Forever answers 0, not nil)
+    for _, c in pairs(db.chars) do
+        for _, t in pairs({ c.bags or false, c.bank or false, c.equipped or false, c.mail and c.mail.items or false }) do
+            if t then t[0] = nil end
+        end
+    end
+    db.items[0] = nil
     ns.db, ns.settings = db, db.settings
     if ns.OnLoad then ns.OnLoad() end
 end)

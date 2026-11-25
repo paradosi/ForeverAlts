@@ -149,6 +149,7 @@ function T.SearchBox(parent, placeholder, onChange)
     glass:SetText("/")
     local hint = T.Text(box, T.mono, 11, C.muted)
     hint:SetPoint("LEFT", 24, 0)
+    hint:SetPoint("RIGHT", -8, 0)  -- a long placeholder trails off inside the box, never past it
     hint:SetText(placeholder)
     box:SetScript("OnEscapePressed", function(self)
         if self:GetText() ~= "" then self:SetText("") else self:ClearFocus() end

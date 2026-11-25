@@ -29,7 +29,7 @@ local function ReadContainer(bag, counts)
     local n = C_Container.GetContainerNumSlots(bag) or 0
     for slot = 1, n do
         local info = C_Container.GetContainerItemInfo(bag, slot)
-        if info and info.itemID then
+        if info and info.itemID and info.itemID > 0 then
             counts[info.itemID] = (counts[info.itemID] or 0) + (info.stackCount or 1)
             Remember(info.itemID, info.hyperlink, info.quality, info.iconFileID)
         end
@@ -71,7 +71,8 @@ local function ScanGear()
     local gear, counts = {}, {}
     for slot = 0, 19 do
         local id = GetInventoryItemID("player", slot)
-        if id then
+        -- Forever answers 0, not nil, for an empty slot (seen 2026-11-25: an "item 0" in search)
+        if id and id > 0 then
             local link = GetInventoryItemLink("player", slot)
             gear[slot] = link or id
             counts[id] = (counts[id] or 0) + (slot == 0 and (GetInventoryItemCount("player", 0) or 1) or 1)

@@ -30,7 +30,7 @@ local function ScanInbox()
         if hasItem then
             for a = 1, maxAttach do
                 local _, itemID, icon, count, quality = GetInboxItem(i, a)
-                if itemID then
+                if itemID and itemID > 0 then
                     items[itemID] = (items[itemID] or 0) + (count or 1)
                     ns.Remember(itemID, GetInboxItemLink(i, a), quality, icon)
                     holds = true
@@ -105,7 +105,7 @@ hooksecurefunc("SendMail", function(recipient)
     local items = {}
     for a = 1, ATTACHMENTS_MAX_SEND or 12 do
         local _, itemID, _, count = GetSendMailItem(a)
-        if itemID then items[itemID] = (items[itemID] or 0) + (count or 1) end
+        if itemID and itemID > 0 then items[itemID] = (items[itemID] or 0) + (count or 1) end
     end
     pending = { key = key, items = items, money = GetSendMailMoney() or 0 }
 end)

@@ -130,7 +130,7 @@ C_Bank = {
     CanViewBank = function() return bankOpen end,
     FetchPurchasedBankTabData = function(t) return t == 0 and { { ID = 6 } } or { { ID = 15 } } end,
 }
-function GetInventoryItemID(_, slot) return slot == 5 and 6097 or nil end
+function GetInventoryItemID(_, slot) return slot == 5 and 6097 or 0 end  -- Forever: 0 for an empty slot
 function GetInventoryItemLink(_, slot) return slot == 5 and "|Hitem:6097::|h[Acolyte's Shirt]|h" or nil end
 function GetInventoryItemCount() return 1 end
 function GetProfessions() return 1, 2 end
@@ -249,6 +249,7 @@ check(me ~= nil, "character filed under its full First Last name")
 check(me.level == 37 and me.money == 1234567 and me.ilvl == 34, "summary recorded")
 check(me.bags[2589] == 40, "bags counted: 40 Linen Cloth")
 check(me.equipped[6097] == 1, "gear counted")
+check(me.equipped[0] == nil, "an empty gear slot is not item 0")
 check(#me.profs == 2 and me.profs[1].name == "Tailoring", "professions recorded")
 check(played, "played time requested on first login")
 Fire("TIME_PLAYED_MSG", 90000, 3600)
@@ -348,6 +349,9 @@ SlashCmdList.FOREVERALTS("profs bolt")
 SlashCmdList.FOREVERALTS("profs")
 SlashCmdList.FOREVERALTS("reps")
 SlashCmdList.FOREVERALTS("reps night")
+ns.ShowUI("reps", "", "Dreamscythe|Borin Stonefist")
+check(ForeverAltsFrame and true, "reputation filtered to a character with none recorded")
+ns.ShowUI("reps", "", false)
 ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")
 ns.ShowUI("chars")
 RunTimers()

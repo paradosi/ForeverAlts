@@ -90,6 +90,7 @@ local function CharacterMenu(row)
     MenuUtil.CreateContextMenu(row, function(_, root)
         root:CreateTitle(c.realm ~= "" and (c.name .. " · " .. c.realm) or c.name)
         root:CreateButton("Browse items", function() ns.ShowUI("items", "", c.key) end)
+        root:CreateButton("Show reputation", function() ns.ShowUI("reps", "", c.key) end)
         root:CreateButton("Forget this character", function()
             StaticPopupDialogs.FOREVERALTS_FORGET = forgetDialog
             StaticPopup_Show("FOREVERALTS_FORGET", c.name, nil, c.key)
@@ -248,6 +249,37 @@ local function BuildCharacters(view)
     end
 end
 
+---- The character filter, shared by Items and Reputation -----------------------
+
+-- Set by clicking a character on the Characters tab; cleared from the chip on either view
+local filterKey
+
+local function FilterChar()
+    local c = filterKey and ns.db.chars[filterKey]
+    if filterKey and not c then filterKey = nil end
+    return c
+end
+
+-- "ONLY Name ×" beside a view's search box; click to show every character again
+local function OnlyChip(view)
+    local b = CreateFrame("Button", nil, view)
+    b:SetHeight(24)
+    b:SetPoint("LEFT", view.search, "RIGHT", 10, 0)
+    b.text = T.Chip(b)
+    b.text:SetPoint("LEFT", 8, 0)
+    b:SetScript("OnClick", function() filterKey = nil; view:Refresh() end)
+    function b:Update()
+        local c = FilterChar()
+        self:SetShown(c ~= nil)
+        if c then
+            self.text:SetText("ONLY " .. c.name:upper() .. "   ×")
+            self:SetWidth(self.text:GetStringWidth() + 16)
+        end
+        return c
+    end
+    return b
+end
+
 ---- Items ----------------------------------------------------------------------
 
 local function ItemInfo(id)
@@ -288,7 +320,7 @@ local function Inventory(onlyKey)
 end
 
 local function BuildItems(view)
-    view.search = T.SearchBox(view, "Search every character's bags, bank, gear and mail", function(text)
+    view.search = T.SearchBox(view, "Search bags, bank, gear and mail", function(text)
         view.query = text
         view:Refresh()
     end)
@@ -296,12 +328,7 @@ local function BuildItems(view)
     view.search:SetWidth(360)
 
     -- "Only Name ×": the character filter set from the Characters view
-    view.only = CreateFrame("Button", nil, view)
-    view.only:SetHeight(24)
-    view.only:SetPoint("LEFT", view.search, "RIGHT", 10, 0)
-    view.only.text = T.Chip(view.only)
-    view.only.text:SetPoint("LEFT", 8, 0)
-    view.only:SetScript("OnClick", function() view.onlyKey = nil; view:Refresh() end)
+    view.only = OnlyChip(view)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
     view.hint:SetPoint("TOPLEFT", PAD, -120)
@@ -347,13 +374,7 @@ local function BuildItems(view)
 
     function view:Refresh()
         local query = (self.query or ""):lower()
-        local onlyChar = self.onlyKey and ns.db.chars[self.onlyKey]
-        if self.onlyKey and not onlyChar then self.onlyKey = nil end
-        self.only:SetShown(onlyChar ~= nil)
-        if onlyChar then
-            self.only.text:SetText("ONLY " .. onlyChar.name:upper() .. "   ×")
-            self.only:SetWidth(self.only.text:GetStringWidth() + 16)
-        end
+        local onlyChar = self.only:Update()
 
         if query == "" and not onlyChar then
             self.list:SetData({})
@@ -367,7 +388,7 @@ local function BuildItems(view)
         end
 
         local results = {}
-        for id, e in pairs(Inventory(self.onlyKey)) do
+        for id, e in pairs(Inventory(onlyChar and filterKey)) do
             local name = ItemInfo(id)
             if query == "" or (name and name:lower():find(query, 1, true)) then
                 e.name = name or ""
@@ -522,6 +543,7 @@ local function BuildReputation(view)
     end)
     view.search:SetPoint("TOPLEFT", 0, 0)
     view.search:SetWidth(360)
+    view.only = OnlyChip(view)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
     view.hint:SetPoint("TOPLEFT", PAD, -120)
@@ -579,8 +601,9 @@ local function BuildReputation(view)
     function view:Refresh()
         local query = (self.query or ""):lower()
         local db = ns.db
+        local onlyChar = self.only:Update()
         local found, recorded = {}, 0
-        for _, c in ipairs(ns:Characters()) do
+        for _, c in ipairs(onlyChar and { onlyChar } or ns:Characters()) do
             if c.reps then recorded = recorded + 1 end
             for id, rep in pairs(c.reps or {}) do
                 local f = db.factions[id]
@@ -624,10 +647,15 @@ local function BuildReputation(view)
             table.insert(rows, e)
         end
         self.hint:SetShown(#list == 0)
-        self.hint:SetText(query == "" and "No reputations recorded yet. They're read when you log in on a character."
-            or ("No faction matches \"" .. (self.query or "") .. "\"."))
+        if onlyChar and not onlyChar.reps then
+            self.hint:SetText(onlyChar.name .. "'s reputations aren't recorded yet. Log in on them once.")
+        elseif query == "" then
+            self.hint:SetText("No reputations recorded yet. They're read when you log in on a character.")
+        else
+            self.hint:SetText("No faction matches \"" .. (self.query or "") .. "\".")
+        end
         self.list:SetData(rows)
-        local chars = #ns:Characters()
+        local chars = onlyChar and 1 or #ns:Characters()
         SetFooter(#list .. " faction" .. (#list == 1 and "" or "s") .. "   ·   "
             .. (recorded < chars and ((chars - recorded) .. " character" .. (chars - recorded == 1 and "" or "s")
                 .. " not recorded yet: log in on them") or "hover a faction for exact numbers"))
@@ -778,14 +806,15 @@ local function Build()
     end)
 end
 
--- view: "chars" | "items" | "profs" | "reps"; query fills its search box; onlyKey filters items to one character
+-- view: "chars" | "items" | "profs" | "reps"; query fills its search box; onlyKey (a character
+-- key, or false to clear) filters Items and Reputation to one character, and stays set across tabs
 function ns.ShowUI(view, query, onlyKey)
     if not ns.me then return end
     if not frame then Build() end
     frame:Show()
     view = view or current or "chars"
     local v = views[view]
-    if view == "items" then v.onlyKey = onlyKey end
+    if onlyKey ~= nil then filterKey = onlyKey or nil end
     if v.search and query then
         v.search:SetText(query)  -- OnTextChanged refreshes
     end

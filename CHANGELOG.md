@@ -16,6 +16,10 @@
 - **Reputation**: a new tab listing every faction your characters have met, grouped as in the game's
   reputation panel, with each character's standing and the best one's progress bar. Search by faction name;
   hover for exact numbers. Recorded at login and whenever reputation changes.
+- Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.
+  Right-click a character for *Show reputation*.
+- Fixed: an "item 0" showed up in Items (an empty gear slot); it's removed from saved data too.
+- Fixed: the Items search box's placeholder ran out of the box.
 - Tooltips say just "bags" when everything is in one place, and split it out ("bags 10, bank 2") only when it isn't.
 - Fixed: gold, XP and rested were saved as 0 when you logged out.
 - Fixed: played time is now asked for on a character's first login (it errored).
