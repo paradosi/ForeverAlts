@@ -219,6 +219,8 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.ShowUI("reps", rest)
     elseif cmd == "locks" or cmd == "lockouts" or cmd == "raids" then
         ns.ShowUI("locks")
+    elseif cmd == "talents" or cmd == "talent" or cmd == "spec" then
+        ns.ShowTalents()
     elseif cmd == "options" or cmd == "config" then
         ns.OpenOptions()
     elseif cmd == "reset" then
@@ -227,6 +229,6 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.Say("window back to its usual size, in the middle.")
     else
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts options · /alts reset (window size and position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts talents · /alts options · /alts reset (window size and position)")
     end
 end

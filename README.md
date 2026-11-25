@@ -3,7 +3,7 @@
 # Forever Alts
 
 **Every character at a glance, for WoW Forever.** Forever Alts records each character you log in on: gold,
-level, played time, rested XP, bags, bank, gear, mail, professions, reputations and raid lockouts. It shows them all in one window and puts
+level, played time, rested XP, bags, bank, gear, mail, professions, reputations, raid lockouts and talents. It shows them all in one window and puts
 item counts on every tooltip. It does the job of Altoholic, with a cleaner look and nothing to configure.
 
 > [!NOTE]
@@ -25,6 +25,10 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
 - **Lockouts**: a grid of your characters against every raid any of them has been saved to. Each cell shows how
   many bosses are down (gold for a full clear) and clears itself when the lockout resets; each column says when that
   raid resets. Hover a character for the bosses still up.
+- **Talents**: each character's three talent trees, redrawn in the window with every talent's rank and the
+  arrows between them; hover a talent for its spell. Dual spec shows both specs. *Copy loadout code* gives the
+  build's code for the game's own Import, to copy a build to another character. The Characters tab has a
+  TALENTS column (`0/21/30`, with unspent points in orange).
 - **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
   account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
 - **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a
@@ -67,6 +71,7 @@ Forever Alts can only see the character you're playing, so each character has to
 | Known recipes | **When you open that profession's window** |
 | Reputations | On login, and whenever reputation changes |
 | Raid lockouts | On login, and after every boss kill |
+| Talents | On login, and whenever you change talents or spec |
 
 > [!TIP]
 > After installing, log in on each alt, open the bank and a mailbox, and open each profession window once. From then on
@@ -98,6 +103,7 @@ standings. Click the *ONLY …* chip on either tab to clear it. Right-clicking a
 | `/alts items <text>` | Open the Items tab searching for `<text>` |
 | `/alts profs <text>` | Open the Professions tab searching recipes for `<text>` |
 | `/alts reps <text>` | Open the Reputation tab searching factions for `<text>` |
+| `/alts talents` | Open the Talents tab (also `/alts spec`) |
 | `/alts locks` | Open the Lockouts tab (also `/alts lockouts`, `/alts raids`) |
 | `/alts options` | Open the options panel |
 | `/alts reset` | Put the window back to its usual size, in the middle of the screen |
@@ -145,10 +151,11 @@ Releasing follows the shared pipeline: `wowdev bump ForeverAlts X.Y.Z -w`, updat
 | `Mail.lua` | The inbox, mail sent to your own characters, expiry and the login warning |
 | `Reputation.lua` | Standings with every faction, the standing names and colours |
 | `Lockouts.lua` | Saved raid instances: progress, bosses and reset time |
+| `Talents.lua` | Each spec's trees, talents, ranks, prerequisites and loadout code |
 | `Tooltip.lua` | Item tooltip lines (counts and *Made by*), the crafter index |
 | `Theme.lua` | wowdb.dev's colour tokens and fonts, and the small widgets built from them |
 | `List.lua` | A virtual scrolling list: a fixed set of rows reused as you scroll |
-| `UI.lua` | The window and its five views |
+| `UI.lua` | The window and its six views |
 | `Options.lua` | The Settings panel |
 | `tests/smoke.lua` | Headless smoke test (not shipped) |
 | `media/fonts` | Oswald and JetBrains Mono, with their OFL licences (shipped) |
@@ -192,6 +199,13 @@ after `RequestRaidInfo()`, so it is asked for at login and two seconds after eac
 `ENCOUNTER_END`, and read only on `UPDATE_INSTANCE_INFO`. Each lockout's reset is stored as a clock time, not a
 countdown, so an alt's lockout ends on schedule without logging in on them. Every instance ever seen is kept for the
 account, so its column stays after the weekly reset.
+
+**Talents.** Forever's talent window is Retail's trait system (`C_Traits`, `C_ClassTalents`) showing the three
+Vanilla trees: one trait tree per class whose nodes are split into three groups. For each spec group
+(`C_SpecializationInfo.GetCombatConfigIDForSpecGroup`), Forever Alts saves the groups' names, icons and points
+spent (`GetGroupCurrencyInfo`), and every visible node's position, spell, rank and outgoing edges. The view turns the
+game's positions into a grid (the smallest gap between two talents is one cell) and scales it to the window.
+`C_Traits.GenerateImportString` gives the loadout code.
 
 **Recipes** come from `C_TradeSkillUI` when your own profession window opens. Linked professions, guild lists
 and NPC crafting orders are ignored. Each learned recipe's output item comes from `GetRecipeSchematic`, which

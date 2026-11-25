@@ -1,12 +1,12 @@
----- UI — the window: Characters, Items, Professions, Reputation and Lockouts views
+---- UI — the window: Characters, Items, Professions, Reputation, Lockouts and Talents views
 
 local _, ns = ...
 local T = ns.T
 local C = T.C
 local PAD = T.PAD
 
-local W, H = 960, 520            -- default size
-local MIN_W, MIN_H = 944, 380     -- every Characters column still fits at MIN_W
+local W, H = 1040, 540           -- default size
+local MIN_W, MIN_H = 1024, 400    -- every Characters column still fits at MIN_W
 local MAX_W, MAX_H = 1800, 1200
 local HEAD, TABS, FOOT = 40, 34, 32
 local frame
@@ -59,6 +59,19 @@ local COLUMNS = {
           return (free == 0 and Hex(C.place) or "") .. free .. "|r" .. MUTED .. " / " .. c.bagSlots .. "|r"
       end,
       sort = function(c) return c.bagFree or 0 end },
+    { key = "talents", label = "TALENTS",  width = 80,  justify = "RIGHT",
+      text = function(c)
+          local spec = ns.ActiveSpec(c)
+          if not spec then return MUTED .. "—|r" end
+          local points = ns.SpecSummary(spec)
+          if (spec.unspent or 0) > 0 then points = points .. Hex(C.place) .. " +" .. spec.unspent .. "|r" end
+          return points
+      end,
+      sort = function(c)
+          local spec, n = ns.ActiveSpec(c), 0
+          for _, t in ipairs(spec and spec.trees or {}) do n = n + (t.spent or 0) end
+          return spec and n or -1
+      end },
     { key = "mail",   label = "MAIL",      width = 64,  justify = "RIGHT",
       text = function(c)
           local m = c.mail
@@ -91,6 +104,7 @@ local function CharacterMenu(row)
         root:CreateTitle(c.realm ~= "" and (c.name .. " · " .. c.realm) or c.name)
         root:CreateButton("Browse items", function() ns.ShowUI("items", "", c.key) end)
         root:CreateButton("Show reputation", function() ns.ShowUI("reps", "", c.key) end)
+        root:CreateButton("Show talents", function() ns.ShowTalents(c.key) end)
         root:CreateButton("Forget this character", function()
             StaticPopupDialogs.FOREVERALTS_FORGET = forgetDialog
             StaticPopup_Show("FOREVERALTS_FORGET", c.name, nil, c.key)
@@ -180,6 +194,13 @@ local function BuildCharacters(view)
                 end
             else
                 GameTooltip:AddLine("Mailbox not recorded yet: open a mailbox on this character.", 0.953, 0.663, 0.510, true)
+            end
+            local t = c.talents
+            for group, spec in pairs(t and t.specs or {}) do
+                local points, top = ns.SpecSummary(spec)
+                local label = (t.specs[2] and (group == t.active and "Talents (active)" or "Talents (other spec)")) or "Talents"
+                local unspent = (spec.unspent or 0) > 0 and ("  |cfff3a982+" .. spec.unspent .. " unspent|r") or ""
+                GameTooltip:AddDoubleLine(label, (top and (top .. " ") or "") .. points .. unspent, 0.588, 0.616, 0.702, 1, 1, 1)
             end
             if c.lockoutsSeen then
                 local locks = ns.Lockouts(c)
@@ -926,6 +947,299 @@ local function BuildLockouts(view)
     end
 end
 
+---- Talents --------------------------------------------------------------------
+
+-- One character's three trees, redrawn from what was saved: each talent's icon at its
+-- place in the grid, its rank, and arrows for prerequisites. A row of names along the
+-- top picks the character; dual spec adds a pair of spec buttons.
+
+local MAXED, PARTIAL = C.accent, { 0.533, 0.812, 0.490 }
+
+local function BuildTalents(view)
+    view.pick, view.group, view.spec = false, false, false
+    view.picks, view.specButtons, view.panels = {}, {}, {}
+
+    -- Copy the loadout code: a field with the code selected, ready for Ctrl+C
+    view.copy = T.TextButton(view, "COPY LOADOUT CODE", 10)
+    view.copy:SetPoint("TOPRIGHT", 0, 0)
+    local box = CreateFrame("EditBox", nil, view)
+    view.codeBox = box
+    box.code = false
+    box:SetAutoFocus(false)
+    box:SetFont(T.mono, 10, "")
+    box:SetTextColor(C.primary[1], C.primary[2], C.primary[3])
+    box:SetTextInsets(8, 8, 0, 0)
+    box:SetHeight(24)
+    box:SetPoint("TOPLEFT", 0, -30)
+    box:SetPoint("TOPRIGHT", 0, -30)
+    box:SetFrameLevel(view:GetFrameLevel() + 20)
+    local cbg = box:CreateTexture(nil, "BACKGROUND"); T.Fill(cbg, C.deep); cbg:SetAllPoints()
+    T.Border(box, C.accent)
+    box:Hide()
+    box:SetScript("OnEscapePressed", function(self) self:Hide() end)
+    box:SetScript("OnEnterPressed", function(self) self:Hide() end)
+    -- Read-only: typing puts the code back
+    box:SetScript("OnTextChanged", function(self, user)
+        if user and self.code then self:SetText(self.code); self:HighlightText() end
+    end)
+    view.copy:SetScript("OnClick", function()
+        if box:IsShown() or not box.code then box:Hide(); return end
+        box:Show()
+        box:SetText(box.code)
+        box:SetFocus()
+        box:HighlightText()
+        SetFooter("Ctrl+C copies the code · paste it with Import in the game's talent window · Esc closes")
+    end)
+
+    view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
+    view.hint:SetPoint("TOPLEFT", PAD, -120)
+    view.hint:SetPoint("TOPRIGHT", -PAD, -120)
+    view.hint:SetWordWrap(true)
+
+    local function Panel(i)
+        local p = view.panels[i]
+        if p then return p end
+        p = CreateFrame("Frame", nil, view)
+        local bg = p:CreateTexture(nil, "BACKGROUND"); T.Fill(bg, C.raised); bg:SetAllPoints()
+        T.Border(p, C.divider)
+        p.icon = T.Icon(p, 18)
+        p.icon:SetPoint("TOPLEFT", 10, -9)
+        p.name = T.Text(p, T.display, 13, C.primary)
+        p.name:SetPoint("LEFT", p.icon, "RIGHT", 8, 0)
+        p.spent = T.Text(p, T.monoMedium, 13, C.accent, "RIGHT")
+        p.spent:SetPoint("TOPRIGHT", -10, -10)
+        p.nodes, p.lines, p.used, p.lineCount, p.left = {}, {}, 0, 0, 0
+        view.panels[i] = p
+        return p
+    end
+
+    local function Node(p, i)
+        local b = p.nodes[i]
+        if b then return b end
+        b = CreateFrame("Button", nil, p)
+        b.node = false
+        b.edge = b:CreateTexture(nil, "BORDER")
+        b.edge:SetAllPoints()
+        b.icon = b:CreateTexture(nil, "ARTWORK")
+        b.icon:SetPoint("TOPLEFT", 2, -2); b.icon:SetPoint("BOTTOMRIGHT", -2, 2)
+        b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+        b.rank = T.Text(b, T.mono, 9, C.primary, "CENTER")
+        b.rank:SetPoint("CENTER", b, "BOTTOMRIGHT", -2, 3)
+        b.rankBg = b:CreateTexture(nil, "ARTWORK", nil, 2)
+        T.Fill(b.rankBg, C.deep)
+        b.rankBg:SetPoint("TOPLEFT", b.rank, -2, 1); b.rankBg:SetPoint("BOTTOMRIGHT", b.rank, 2, -1)
+        b:SetScript("OnEnter", function(self)
+            local n = self.node
+            if not n then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetSpellByID(n.s)
+            GameTooltip:AddLine("Rank " .. n.r .. " / " .. n.m, 0.890, 0.714, 0.392)
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", GameTooltip_Hide)
+        p.nodes[i] = b
+        return b
+    end
+
+    local function Arrow(p, i)
+        local l = p.lines[i]
+        if l then return l end
+        l = p:CreateLine(nil, "BORDER")
+        l:SetThickness(2)
+        p.lines[i] = l
+        return l
+    end
+
+    -- The game's positions to a grid: the smallest step between two talents is one cell
+    local function Step(nodes, key)
+        local seen, list = {}, {}
+        for _, node in ipairs(nodes) do
+            local v = node[key]
+            if not seen[v] then seen[v] = true; list[#list + 1] = v end
+        end
+        table.sort(list)
+        local step
+        for i = 2, #list do
+            local d = list[i] - list[i - 1]
+            if d > 0 and (not step or d < step) then step = d end
+        end
+        return step or 1, list[1] or 0
+    end
+
+    -- Lay one spec out across the view's width and height
+    function view:Draw(spec)
+        local top, gap, gridTop = 34, 10, 36
+        local width, height = self:GetWidth(), self:GetHeight()
+        if not width or width <= 0 then width = W - PAD * 2 end
+        if not height or height <= 0 then height = H - 140 end
+        local trees, nodes = spec and spec.trees or {}, spec and spec.nodes or {}
+        local n = #trees
+        local panelW = n > 0 and math.floor((width - gap * (n - 1)) / n) or 0
+        local panelH = height - top
+
+        local stepX = Step(nodes, "x")
+        local stepY, minY = Step(nodes, "y")
+        local minX, cols, rows = {}, {}, 1
+        for _, node in ipairs(nodes) do
+            if not minX[node.t] or node.x < minX[node.t] then minX[node.t] = node.x end
+        end
+        for _, node in ipairs(nodes) do
+            node.col = math.floor((node.x - minX[node.t]) / stepX + 0.5)
+            node.row = math.floor((node.y - minY) / stepY + 0.5)
+            cols[node.t] = math.max(cols[node.t] or 1, node.col + 1)
+            rows = math.max(rows, node.row + 1)
+        end
+        local maxCols = 4
+        for _, c in pairs(cols) do maxCols = math.max(maxCols, c) end
+        local cell = math.floor(math.min((panelW - 16) / maxCols, (panelH - gridTop - 8) / rows))
+        local size = math.max(16, math.floor(cell * 0.7))
+
+        for i = 1, math.max(n, #self.panels) do
+            local p = i <= n and Panel(i) or self.panels[i]
+            if i <= n then
+                local tree = trees[i]
+                p:ClearAllPoints()
+                p:SetPoint("TOPLEFT", (i - 1) * (panelW + gap), -top)
+                p:SetSize(panelW, panelH)
+                p.icon:SetTexture(tree.icon)
+                p.name:SetText(tree.name)
+                p.spent:SetText(tostring(tree.spent or 0))
+                p.left = math.floor((panelW - (cols[i] or maxCols) * cell) / 2)
+                p:Show()
+            else
+                p:Hide()
+            end
+            p.used, p.lineCount = 0, 0
+        end
+        local placed = {}
+        for idx, node in ipairs(nodes) do
+            local p = node.t <= n and self.panels[node.t]
+            if p then
+                p.used = p.used + 1
+                local b = Node(p, p.used)
+                b.node = node
+                b:SetSize(size, size)
+                b:ClearAllPoints()
+                b:SetPoint("CENTER", p, "TOPLEFT", p.left + (node.col + 0.5) * cell, -(gridTop + (node.row + 0.5) * cell))
+                b.icon:SetTexture(node.i)
+                local on = node.r > 0
+                b.icon:SetDesaturated(not on)
+                b.icon:SetAlpha(on and 1 or 0.45)
+                local col = (node.r >= node.m and MAXED) or (on and PARTIAL) or C.border
+                T.Fill(b.edge, col)
+                b.rank:SetText(node.r .. "/" .. node.m)
+                local rc = on and col or C.muted
+                b.rank:SetTextColor(rc[1], rc[2], rc[3])
+                b:Show()
+                placed[idx] = b
+            end
+        end
+        -- Prerequisite arrows: gold once the talent they lead to has points
+        for idx, node in ipairs(nodes) do
+            local from = placed[idx]
+            for _, target in ipairs(node.e or {}) do
+                local to = placed[target]
+                if from and to and nodes[target].t == node.t then
+                    local p = self.panels[node.t]
+                    p.lineCount = p.lineCount + 1
+                    local l = Arrow(p, p.lineCount)
+                    l:SetStartPoint("CENTER", from)
+                    l:SetEndPoint("CENTER", to)
+                    local c = nodes[target].r > 0 and MAXED or C.border
+                    l:SetColorTexture(c[1], c[2], c[3], 0.9)
+                    l:Show()
+                end
+            end
+        end
+        for _, p in ipairs(self.panels) do
+            for i = p.used + 1, #p.nodes do p.nodes[i]:Hide(); p.nodes[i].node = false end
+            for i = p.lineCount + 1, #p.lines do p.lines[i]:Hide() end
+        end
+    end
+    view:SetScript("OnSizeChanged", function(self) if self.spec then self:Draw(self.spec) end end)
+
+    function view:Refresh()
+        local chars, recorded = {}, 0
+        for _, c in ipairs(ns:Characters()) do
+            if c.talents then chars[#chars + 1] = c; recorded = recorded + 1 end
+        end
+        table.sort(chars, function(a, b)
+            if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+            return a.name < b.name
+        end)
+        local c = self.pick and ns.db.chars[self.pick]
+        if not (c and c.talents) then
+            c = (ns.me and ns.me.talents and ns.me) or chars[1]
+            self.pick = c and c.key or false
+            self.group = false
+        end
+
+        -- The character picker
+        local prev
+        for i, ch in ipairs(chars) do
+            local b = self.picks[i]
+            if not b then
+                b = T.TextButton(self, "", 11)
+                self.picks[i] = b
+            end
+            b.text:SetText(ch.name:upper())
+            b:SetWidth(math.max(b.text:GetStringWidth(), #ch.name * 6.8) + 20)
+            b:ClearAllPoints()
+            if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", -8, 0) end
+            b:SetSelected(ch == c)
+            b:SetScript("OnClick", function() self.pick, self.group = ch.key, false; box:Hide(); self:Refresh() end)
+            b:Show()
+            prev = b
+        end
+        for i = #chars + 1, #self.picks do self.picks[i]:Hide() end
+
+        local t = c and c.talents
+        local group = (self.group and t and t.specs[self.group]) and self.group or (t and t.active) or 1
+        local spec = t and t.specs[group] or false
+        self.spec = spec
+
+        -- Dual spec: a button per spec, beside the copy button
+        local dual = t and t.specs[1] and t.specs[2] and true or false
+        for g = 1, 2 do
+            local b = self.specButtons[g]
+            if not b then
+                b = T.TextButton(self, g == 1 and "PRIMARY" or "SECONDARY", 10)
+                b:SetScript("OnClick", function() self.group = g; box:Hide(); self:Refresh() end)
+                self.specButtons[g] = b
+            end
+            b:SetShown(dual)
+            b:SetSelected(g == group)
+        end
+        self.specButtons[2]:ClearAllPoints()
+        self.specButtons[2]:SetPoint("RIGHT", self.copy, "LEFT", -6, 0)
+        self.specButtons[1]:ClearAllPoints()
+        self.specButtons[1]:SetPoint("RIGHT", self.specButtons[2], "LEFT", 0, 0)
+        box.code = spec and spec.code or false
+        self.copy:SetShown(box.code and true or false)
+
+        self.hint:SetShown(not spec)
+        if not c then
+            self.hint:SetText("No talents recorded yet. They're read when you log in on a character, and whenever you change them.")
+        elseif not spec then
+            self.hint:SetText(c.name .. " has no talents to show yet.")
+        end
+        self:Draw(spec)
+        if not box:IsShown() then
+            local foot = {}
+            if c and spec then
+                local points, top = ns.SpecSummary(spec)
+                foot[#foot + 1] = c.name .. "   ·   " .. (top and (top .. " ") or "") .. points
+                if (spec.unspent or 0) > 0 then foot[#foot + 1] = spec.unspent .. " unspent" end
+                if dual then foot[#foot + 1] = (group == t.active and "active spec" or "other spec") end
+                foot[#foot + 1] = "recorded " .. ns.Ago(t.seen)
+            end
+            local missing = #ns:Characters() - recorded
+            if missing > 0 then foot[#foot + 1] = missing .. " not recorded yet: log in on them" end
+            SetFooter(table.concat(foot, "   ·   "))
+        end
+    end
+end
+
 ---- The window -----------------------------------------------------------------
 
 local TABS_DEF = {
@@ -934,6 +1248,7 @@ local TABS_DEF = {
     { key = "profs", label = "PROFESSIONS", build = BuildProfessions },
     { key = "reps",  label = "REPUTATION",  build = BuildReputation },
     { key = "locks", label = "LOCKOUTS",    build = BuildLockouts },
+    { key = "talents", label = "TALENTS",   build = BuildTalents },
 }
 
 local function Select(key)
@@ -961,7 +1276,8 @@ end
 local function Build()
     frame = CreateFrame("Frame", "ForeverAltsFrame", UIParent)
     local size = ns.db.size
-    frame:SetSize(size and size[1] or W, size and size[2] or H)
+    -- A size saved before a new column raised the minimum grows to fit it
+    frame:SetSize(math.max(MIN_W, size and size[1] or W), math.max(MIN_H, size and size[2] or H))
     frame:SetResizable(true)
     frame:SetResizeBounds(MIN_W, MIN_H, MAX_W, MAX_H)
     frame:SetFrameStrata("HIGH")
@@ -1071,7 +1387,7 @@ local function Build()
     end)
 end
 
--- view: "chars" | "items" | "profs" | "reps" | "locks"; query fills its search box; onlyKey (a character
+-- view: "chars" | "items" | "profs" | "reps" | "locks" | "talents"; query fills its search box; onlyKey (a character
 -- key, or false to clear) filters Items and Reputation to one character, and stays set across tabs
 function ns.ShowUI(view, query, onlyKey)
     if not ns.me then return end
@@ -1084,6 +1400,14 @@ function ns.ShowUI(view, query, onlyKey)
         v.search:SetText(query)  -- OnTextChanged refreshes
     end
     Select(view)
+end
+
+-- The Talents tab, showing one character (a key; nil keeps the current pick)
+function ns.ShowTalents(key)
+    if not ns.me then return end
+    if not frame then Build() end
+    if key then views.talents.pick, views.talents.group = key, false end
+    ns.ShowUI("talents")
 end
 
 function ns.ToggleUI()

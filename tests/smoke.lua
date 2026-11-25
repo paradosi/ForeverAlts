@@ -51,6 +51,7 @@ local methods = {
     CreateTexture = function() return NewWidget("Texture") end,
     CreateFontString = function() return NewWidget("FontString") end,
     CreateMaskTexture = function() return NewWidget("MaskTexture") end,
+    CreateLine = function() return NewWidget("Line") end,
     RegisterEvent = function(self, e) self.events[e] = true end,
 }
 Widget.__index = function(_, k) return methods[k] or function() end end
@@ -214,6 +215,36 @@ function GetSavedInstanceInfo(i) return unpack(saved[i]) end
 function GetSavedInstanceEncounterInfo(i, e)
     if i == 1 then return "Boss " .. e, 0, e <= 3 end
 end
+-- Talents: one spec, a Mage tree of three groups; 7 points in Fire (5/5 Improved
+-- Fireball leading to 2/3 Ignite), Arcane's talent untouched, 2 points unspent
+local talentNodes = {
+    [101] = { ID = 101, posX = 1000, posY = 1000, isVisible = true, groupIDs = { 12 }, entryIDs = { 201 }, currentRank = 5, maxRanks = 5,
+              visibleEdges = { { targetNode = 102 } } },
+    [102] = { ID = 102, posX = 1000, posY = 1600, isVisible = true, groupIDs = { 12 }, entryIDs = { 202 }, currentRank = 2, maxRanks = 3, visibleEdges = {} },
+    [103] = { ID = 103, posX = 1600, posY = 1000, isVisible = true, groupIDs = { 11 }, entryIDs = { 203 }, currentRank = 0, maxRanks = 5, visibleEdges = {} },
+}
+C_ClassTalents = { GetActiveConfigID = function() return 77 end }
+C_SpecializationInfo = {
+    GetActiveSpecGroup = function() return 1 end,
+    GetCombatConfigIDForSpecGroup = function() return 77 end,
+}
+function GetNumSpecGroups() return 1 end
+C_Traits = {
+    GetConfigInfo = function(id) return id == 77 and { treeIDs = { 500 } } or nil end,
+    GetGroupDisplayInfoByTreeID = function()
+        return { { groupID = 13, orderIndex = 3, displayName = "Frost", icon = 3 }, { groupID = 11, orderIndex = 1, displayName = "Arcane", icon = 1 },
+                 { groupID = 12, orderIndex = 2, displayName = "Fire", icon = 2 } }
+    end,
+    GetGroupCurrencyInfo = function() return { { traitNodeGroupID = 12, currencyInfos = { { spent = 7 } } } } end,
+    GetTreeNodes = function() return { 101, 102, 103 } end,
+    GetNodeInfo = function(_, id) return talentNodes[id] end,
+    GetEntryInfo = function(_, e) return { definitionID = e + 100 } end,
+    GetDefinitionInfo = function(d) return { spellID = d * 10 } end,
+    GetTreeCurrencyInfo = function() return { { quantity = 2 } } end,
+    GenerateImportString = function() return "BAAAAAAAAtalentcode" end,
+}
+C_Spell = C_Spell or {}
+C_Spell.GetSpellTexture = function() return 99 end
 local hooks = {}
 function hooksecurefunc(name, fn) hooks[name] = fn end
 function GetInboxNumItems() return #inbox, 53 end
@@ -306,6 +337,15 @@ Fire("BOSS_KILL", 663, "Lucifron")
 RunTimers()
 check(askedRaids == 2, "lockouts: a boss kill asks again")
 
+-- Talents: the trees in the game's order, points per tree, ranks and arrows
+local spec = me.talents and me.talents.specs[1]
+check(spec and spec.trees[1].name == "Arcane" and spec.trees[2].spent == 7 and spec.trees[3].spent == 0, "talents: trees in order, points spent")
+check(spec and #spec.nodes == 3 and spec.unspent == 2 and spec.code == "BAAAAAAAAtalentcode", "talents: nodes, unspent points, loadout code")
+local fireball
+for _, n in ipairs(spec and spec.nodes or {}) do if n.s == 3010 then fireball = n end end
+check(fireball and fireball.t == 2 and fireball.r == 5 and fireball.e and spec.nodes[fireball.e[1]].s == 3020, "talents: rank and prerequisite arrow")
+check(ns.SpecSummary(spec) == "0/7/0" and select(2, ns.SpecSummary(spec)) == "Fire", "talents: summary names the top tree")
+
 -- Mail: nothing is read until the server answers, then the inbox is counted
 Fire("MAIL_SHOW")
 check(me.mail == nil, "mail not recorded before the inbox arrives")
@@ -391,6 +431,13 @@ end
 check(profRow ~= nil, "professions: a Tailoring row to click")
 if profRow then profRow.scripts.OnClick(profRow, "LeftButton") end
 check(ForeverAltsFrame.footer.text:find("1 Tailoring recipe on Aelin Galathynius", 1, true) ~= nil, "professions: click lists the recipes")
+SlashCmdList.FOREVERALTS("talents")
+check(ForeverAltsFrame.footer.text:find("Aelin Galathynius   ·   Fire 0/7/0", 1, true) ~= nil, "talents: tab draws the active spec")
+local drawn = 0
+for _, f in ipairs(allFrames) do if rawget(f, "node") then drawn = drawn + 1 end end
+check(drawn == 3, "talents: every talent placed (" .. drawn .. ")")
+ns.ShowTalents("Dreamscythe|Borin Stonefist")
+check(ForeverAltsFrame.footer.text:find("Aelin", 1, true) ~= nil, "talents: a character without talents falls back")
 SlashCmdList.FOREVERALTS("locks")
 check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
 now = now + 5 * 86400

@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Forever Alts
-## Notes: Every character at a glance: gold, levels, played time, rested XP, bags, bank, gear, mail, professions, reputation and raid lockouts, with item counts on tooltips. /alts
+## Notes: Every character at a glance: gold, levels, played time, rested XP, bags, bank, gear, mail, professions, reputation, raid lockouts and talents, with item counts on tooltips. /alts
 ## Author: paradosi-Dreamscythe
 ## Version: 0.1.0
 ## Category-enUS: Inventory
@@ -13,6 +13,7 @@ Scan.lua
 Mail.lua
 Reputation.lua
 Lockouts.lua
+Talents.lua
 Tooltip.lua
 Theme.lua
 List.lua

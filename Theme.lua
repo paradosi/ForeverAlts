@@ -112,6 +112,7 @@ function T.TextButton(parent, label, size)
     b.text = T.Text(b, T.display, size or 11, C.muted)
     b.text:SetPoint("CENTER")
     b.text:SetText(label)
+    b.underline = false  -- the tabs add one
     -- A custom font may not be loaded when the button is made, and then the string
     -- measures ~0 wide (the tabs piled on top of each other). Estimate from the label
     -- length as a floor, and measure again with :Fit() once the window is on screen.

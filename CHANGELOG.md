@@ -19,6 +19,10 @@
 - **Lockouts**: a new tab with every raid your characters are saved to: bosses down, when each raid resets,
   and the bosses still up when you hover a character. Lockouts end on their own at the reset. Recorded at
   login and after each boss kill. The Characters tooltip lists what a character is saved to.
+- **Talents**: a new tab drawing each character's three talent trees, with ranks, prerequisite arrows and
+  spell tooltips, both specs with dual spec, and *Copy loadout code* for the game's Import. A TALENTS column on
+  the Characters tab shows points per tree and any unspent. Right-click a character for *Show talents*.
+- The window is a little wider to fit the new column.
 - Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.
   Right-click a character for *Show reputation*.
 - Click a profession on the Professions tab to list that character's recipes, with who else knows each one.
