@@ -28,6 +28,7 @@
   positions have small slips in them, and a few hidden talents sit far off the tree; the grid now snaps to the
   slips and leaves the hidden ones out).
 - The window is a little wider to fit the new column.
+- Fixed: in a narrow window the footer ran into the version number. It now ends with "…"; hover it for the whole line.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.
   The *Made by* line follows them too.
 - Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.

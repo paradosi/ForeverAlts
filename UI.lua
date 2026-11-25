@@ -1434,11 +1434,27 @@ local function Build()
         SavePosition()  -- sizing re-anchors the frame; keep where it ended up
     end)
 
-    frame.footer = T.Text(frame, T.mono, 10, C.muted)
-    frame.footer:SetPoint("LEFT", frame, "BOTTOMLEFT", PAD, FOOT / 2)
     local version = T.Text(frame, T.mono, 10, C.muted, "RIGHT")
     version:SetPoint("RIGHT", frame, "BOTTOMRIGHT", -PAD - 14, FOOT / 2)
     version:SetText("v" .. (C_AddOns.GetAddOnMetadata(ns.name, "Version") or "?") .. "   /alts")
+    -- The footer stops short of the version: a narrow window cuts it with "…", and
+    -- hovering shows the whole line
+    frame.footer = T.Text(frame, T.mono, 10, C.muted)
+    frame.footer:SetPoint("LEFT", frame, "BOTTOMLEFT", PAD, FOOT / 2)
+    frame.footer:SetPoint("RIGHT", version, "LEFT", -24, 0)
+    local footHover = CreateFrame("Frame", nil, frame)
+    footHover:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, FOOT)
+    footHover:SetPoint("BOTTOMRIGHT", version, "BOTTOMLEFT", -24, -8)
+    -- Hover only: clicks fall through, so the footer still drags the window
+    if footHover.EnableMouseMotion then footHover:EnableMouseMotion(true) end
+    footHover:SetScript("OnEnter", function(self)
+        local fs = frame.footer
+        if not (fs.IsTruncated and fs:IsTruncated()) then return end
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine(fs:GetText(), 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    footHover:SetScript("OnLeave", GameTooltip_Hide)
 
     -- The fonts are surely loaded once the window is on screen: size the tabs to their labels
     local function FitTabs()
