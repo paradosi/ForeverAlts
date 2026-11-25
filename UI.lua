@@ -410,6 +410,10 @@ end
 
 ---- Professions --------------------------------------------------------------
 
+-- Gathering professions have no recipes: Herbalism, Skinning, Fishing (skill line IDs).
+-- Mining isn't here: its window holds the Smelting recipes.
+local NO_RECIPES = { [182] = true, [393] = true, [356] = true }
+
 local function BuildProfessions(view)
     view.search = T.SearchBox(view, "Who can make…", function(text)
         view.query = text
@@ -473,6 +477,8 @@ local function BuildProfessions(view)
                 local n = 0
                 for _ in pairs(known) do n = n + 1 end
                 row.extra:SetText(n .. " recipes  " .. ns.Ago(e.c.recipesSeen and e.c.recipesSeen[e.p.name]))
+            elseif NO_RECIPES[e.p.skillLine] then
+                row.extra:SetText("gathering")
             else
                 row.extra:SetText(Hex(C.place) .. "open the profession window to record recipes|r")
             end

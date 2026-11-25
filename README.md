@@ -221,7 +221,8 @@ A secret written to saved variables would break every later comparison.
 Hovering their row on the Characters tab shows when the bank was last recorded.
 
 **Professions say "open the profession window to record recipes".** Open each profession's window once on that
-character. Skill levels are recorded at login, but recipes aren't.
+character. Herbalism, Skinning and Fishing have no recipes, so they say *gathering* instead. Mining's window holds the
+Smelting recipes, so open it too. Skill levels are recorded at login, but recipes aren't.
 
 **`/played` printed in chat when I logged in.** That happens once per character, the first time Forever Alts sees
 it, to learn the total.

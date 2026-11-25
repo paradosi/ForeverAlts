@@ -18,6 +18,7 @@
   hover for exact numbers. Recorded at login and whenever reputation changes.
 - Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.
   Right-click a character for *Show reputation*.
+- Herbalism, Skinning and Fishing say *gathering* on the Professions tab instead of asking you to record recipes they don't have.
 - Fixed: an "item 0" showed up in Items (an empty gear slot); it's removed from saved data too.
 - Fixed: the Items search box's placeholder ran out of the box.
 - Tooltips say just "bags" when everything is in one place, and split it out ("bags 10, bank 2") only when it isn't.
