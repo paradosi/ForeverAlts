@@ -186,6 +186,12 @@ ns:On("PLAYER_LOGIN", function()
     me.class   = Plain(class) or me.class
     me.race    = Plain((UnitRace("player"))) or me.race
     me.faction = Plain((UnitFactionGroup("player"))) or me.faction
+    -- The ruleset (Normal, PvP, Roleplay…). Forever has no realm names, but a character's
+    -- GUID still carries its home server: "Player-<server>-<id>", the same for every
+    -- character on one ruleset. GetRealmID() is kept beside it as a cross-check.
+    local guid = Plain(UnitGUID("player"))
+    me.server  = guid and tonumber(guid:match("^Player%-(%d+)%-")) or me.server
+    me.realmID = Plain(GetRealmID()) or me.realmID
     if me.played then me.playedAt = GetTime() end
 
     ScanSummary()

@@ -84,6 +84,8 @@ function GetRealmName() return "Dreamscythe" end
 function UnitClass() return "Mage", "MAGE" end
 function UnitRace() return "Human" end
 function UnitFactionGroup() return "Alliance" end
+function UnitGUID() return "Player-4372-0A1B2C3D" end
+function GetRealmID() return 4372 end
 function UnitLevel() return 37 end
 function UnitXP() return 4000 end
 function UnitXPMax() return 10000 end
@@ -389,6 +391,25 @@ check(text:find("Account bank = 5") ~= nil and text:find("Total = 77") ~= nil, "
 lines = {}
 for _, fn in ipairs(tooltipCalls) do fn(tip, { id = 2996 }) end
 check(table.concat(lines):find("Made by") ~= nil, "tooltip: Made by line for a crafted item")
+check(me.server == 4372 and me.realmID == 4372, "ruleset: home server read from the GUID")
+
+-- Only your faction / ruleset: Borin is Horde on another server
+local function TipText(id)
+    lines = {}
+    for _, fn in ipairs(tooltipCalls) do fn(tip, { id = id }) end
+    return table.concat(lines, "\n")
+end
+check(TipText(2589):find("Borin", 1, true) ~= nil, "filters off: Borin counted although his faction is unknown")
+borin.faction, borin.server = "Horde", 9999
+db.settings.sameFaction = true
+check(TipText(2589):find("Borin", 1, true) == nil and TipText(2589):find("Aelin", 1, true) ~= nil, "same faction: the Horde alt is left out")
+check(TipText(2996):find("Made by", 1, true) ~= nil and TipText(2996):find("Borin", 1, true) == nil, "same faction: Made by leaves him out too")
+db.settings.sameFaction = false
+db.settings.sameRuleset = true
+check(TipText(2589):find("Borin", 1, true) == nil, "same ruleset: an alt on another server is left out")
+borin.server = nil
+check(TipText(2589):find("Borin", 1, true) ~= nil, "same ruleset: an alt not yet recorded still counts")
+db.settings.sameRuleset = false
 
 -- UI: every view, with and without a search
 SlashCmdList.FOREVERALTS("")

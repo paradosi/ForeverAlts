@@ -34,6 +34,11 @@ local function Create()
         Checkbox("allRealms", "Include characters on other realms",
             "Off: only characters on the realm you're playing on are counted.")
     end
+    Checkbox("sameFaction", "Only characters of your faction",
+        "Counts and the Made by line list only characters of the faction you're playing (Horde or Alliance).")
+    Checkbox("sameRuleset", "Only characters on your ruleset",
+        "Counts and the Made by line list only characters on the ruleset you're playing (Normal, PvP, Roleplay or Roleplay PvP). "
+        .. "A character's ruleset is recorded the next time you log in on it; until then it is always counted.")
     Checkbox("tooltipCraft", "Show who can make the item",
         "A \"Made by\" line naming the characters who know the recipe. Recipes are recorded when you open a profession window.")
 

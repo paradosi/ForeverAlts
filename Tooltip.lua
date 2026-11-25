@@ -34,6 +34,17 @@ function ns.CraftIndex()
     return index
 end
 
+-- Whether an item tooltip counts this character, by the tooltip settings. A character
+-- recorded before its ruleset was (no server yet) counts until you next log in on it.
+function ns.TooltipCounts(c)
+    local s, me = ns.settings, ns.me
+    if not me then return true end
+    if not s.allRealms and c.realm ~= me.realm then return false end
+    if s.sameFaction and c.faction and me.faction and c.faction ~= me.faction then return false end
+    if s.sameRuleset and c.server and me.server and c.server ~= me.server then return false end
+    return true
+end
+
 local GREY, GOLD = { 0.588, 0.616, 0.702 }, { 0.890, 0.714, 0.392 }
 
 -- "bags" when it's all in one place; "bags 10, bank 2" when it's split
@@ -53,7 +64,7 @@ local function AddCounts(tooltip, itemID)
     local realm = GetRealmName()
     local rows, total = {}, 0
     for key, c in pairs(ns.db.chars) do
-        if (s.allRealms or c.realm == realm) and (s.tooltipSelf or key ~= ns.meKey) then
+        if ns.TooltipCounts(c) and (s.tooltipSelf or key ~= ns.meKey) then
             local n, bags, bank, worn, mail = ns.Holdings(c, itemID)
             if n > 0 then
                 table.insert(rows, { c = c, n = n, where = Where(bags, bank, worn, mail) })
@@ -83,9 +94,15 @@ end
 local function AddCrafters(tooltip, itemID)
     local crafters = ns.CraftIndex()[itemID]
     if not crafters then return end
-    local names = {}
-    for _, e in ipairs(crafters) do table.insert(names, ns.ColorName(e.char)) end
-    tooltip:AddLine("Made by " .. table.concat(names, ", ") .. " |cff969db3(" .. crafters[1].prof .. ")|r",
+    local names, prof = {}, nil
+    for _, e in ipairs(crafters) do
+        if ns.TooltipCounts(e.char) then
+            table.insert(names, ns.ColorName(e.char))
+            prof = prof or e.prof
+        end
+    end
+    if #names == 0 then return end
+    tooltip:AddLine("Made by " .. table.concat(names, ", ") .. " |cff969db3(" .. prof .. ")|r",
         GOLD[1], GOLD[2], GOLD[3], true)
 end
 

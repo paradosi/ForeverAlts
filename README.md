@@ -119,6 +119,8 @@ Esc → Options → AddOns → **Forever Alts**, or `/alts options`. All setting
 |---|---|---|
 | Show counts on item tooltips | On | The per-character lines on item tooltips |
 | Include the character you're playing | On | Off lists only your other characters |
+| Only characters of your faction | Off | Counts and *Made by* list only Horde, or only Alliance, as you're playing |
+| Only characters on your ruleset | Off | Counts and *Made by* list only characters on your ruleset (Normal, PvP, Roleplay, Roleplay PvP). A character's ruleset is recorded at its next login; until then it's counted |
 | Include characters on other realms | On | Off counts only characters on the current realm |
 | Show who can make the item | On | The *Made by* line |
 | Warn about mail about to expire | On | A chat line at login for each character whose mail runs out within 3 days |
@@ -218,6 +220,10 @@ After that it carries the total forward with the session clock and saves it at l
 
 **Rested XP** for logged-out characters is the saved value plus 5% of a level per 8 hours if they logged out
 resting (inn or city), a quarter of that otherwise, capped at 150%.
+
+**Rulesets.** Forever has no realm names (`GetRealmName()` is empty), but a character's GUID still carries its home
+server (`Player-<server>-<id>`), and that is what the *same ruleset* setting compares. `GetRealmID()` is saved beside
+it as a cross-check.
 
 **Secret values.** On Forever, identity APIs (`UnitName`, `UnitClass`, `UnitRace`) are allowed to return
 secrets. The player's own normally aren't, but each value is checked with `canaccessvalue` before it's saved.

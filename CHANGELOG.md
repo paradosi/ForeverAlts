@@ -23,6 +23,8 @@
   spell tooltips, both specs with dual spec, and *Copy loadout code* for the game's Import. A TALENTS column on
   the Characters tab shows points per tree and any unspent. Right-click a character for *Show talents*.
 - The window is a little wider to fit the new column.
+- New options: item tooltips can count only characters of your faction, or only those on your ruleset.
+  The *Made by* line follows them too.
 - Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.
   Right-click a character for *Show reputation*.
 - Click a profession on the Professions tab to list that character's recipes, with who else knows each one.
