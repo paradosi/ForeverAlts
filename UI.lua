@@ -1632,8 +1632,8 @@ local function BuildTalents(view)
                 foot[#foot + 1] = (plan.saved.scratch and "" or (learned .. " learned + ")) .. (total - learned) .. " planned = "
                     .. total .. " of " .. PLAN_POINTS
                 if total > 0 then foot[#foot + 1] = "level " .. (total + 9) end
-                local nextStep = ns.NextStep(plan.saved, spec)
-                if nextStep then foot[#foot + 1] = "next: " .. ns.StepName(nextStep) .. " " .. nextStep.rank end
+                local step = ns.NextStep(plan.saved, spec)
+                if step then foot[#foot + 1] = "next: " .. ns.StepName(step) .. " " .. step.rank end
             elseif c and spec and legacy then
                 local parts = {}
                 for _, tree in ipairs(spec.trees) do parts[#parts + 1] = tree.name .. " " .. (tree.spent or 0) end
