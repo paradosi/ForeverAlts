@@ -266,8 +266,13 @@ ns.ShowUI("chars")
 RunTimers()
 check(true, "all views rendered without errors")
 
--- Logout carries played time forward
+-- Logout carries played time forward. Forever reads 0 gold and 0 XP by then:
+-- the logout must not overwrite what the live events recorded.
+GetMoney = function() return 0 end
+UnitXP = function() return 0 end
+GetXPExhaustion = function() return nil end
 Fire("PLAYER_LOGOUT")
+check(me.money == 1234567 and me.xp == 4000 and me.rested == 2500, "logout keeps gold, XP and rested")
 check(me.played == 90600, "played time saved at logout")
 
 ns:Forget("Dreamscythe|Borin Stonefist")

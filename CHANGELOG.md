@@ -10,6 +10,7 @@
 - **Professions**: each character's skill levels, and a search for who knows a recipe.
 - **Tooltips**: how many of an item each character has (bags, bank, worn), the account bank, a total,
   and which of your characters can make it.
+- Fixed: gold, XP and rested were saved as 0 when you logged out.
 - Fixed: played time is now asked for on a character's first login (it errored).
 - The window is resizable: drag the bottom-right corner. Wider windows give the Location column more room.
 - `/alts`, the addon compartment button, and options under Esc → Options → AddOns.

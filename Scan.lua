@@ -241,8 +241,12 @@ ns:On("TRADE_SKILL_LIST_UPDATE", function() if me then ns:Debounce("recipes", 0.
 ns:On("TRADE_SKILL_SHOW", function() if me then ns:Debounce("recipes", 0.5, ScanRecipes) end end)
 ns:On("NEW_RECIPE_LEARNED", function() if me then ns:Debounce("recipes", 0.5, ScanRecipes) end end)
 
+-- Only the clock at logout. By PLAYER_LOGOUT Forever has torn the character down:
+-- GetMoney(), UnitXP() and GetXPExhaustion() all return 0 (seen 2026-11-25, every
+-- character saved with 0 gold). Gold, XP and rested are kept current by their own
+-- events above, so nothing needs reading here.
 ns:On("PLAYER_LOGOUT", function()
     if not me then return end
-    ScanSummary()
+    me.lastSeen = time()
     SavePlayed()
 end)
