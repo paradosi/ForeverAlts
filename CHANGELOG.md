@@ -34,7 +34,7 @@
   A plan is also a level order: hover LEVEL ORDER for it, the next talent is outlined, and when you have
   points to spend a chat line names the next one (can be turned off in Options).
 - The Talents tab picks its character from a dropdown in the window's own style (name, level and class) instead of a row of names.
-- wowdb.dev's running glow: a line of gold light runs around a box's border on hover (the tabs, talents, search boxes, the
+- wowdb.dev's running glow: a line of gold light runs around a box's border on hover (the tabs, where the open one keeps glowing; talents, search boxes, the
   character box). The next talent in a plan glows all the time, **in the game's own talent window too**
   (Options → Talents → Show the plan in the talent window).
 - The window is a little wider to fit the new column.

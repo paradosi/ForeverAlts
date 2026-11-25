@@ -268,11 +268,13 @@ end
 -- The glow on hover, made the first time the pointer arrives. Call after the frame's own
 -- OnEnter/OnLeave are set: SetScript would replace the hooks. inset as for T.Glow.
 function T.HoverGlow(frame, inset)
+    frame.keepGlow = frame.keepGlow or false
     frame:HookScript("OnEnter", function(self)
         self.hoverGlow = self.hoverGlow or T.Glow(self, nil, inset)
         self.hoverGlow:SetActive(true)
     end)
     frame:HookScript("OnLeave", function(self)
+        if self.keepGlow and self:keepGlow() then return end  -- e.g. the open tab keeps its glow
         if self.hoverGlow and not (self.HasFocus and self:HasFocus()) then self.hoverGlow:SetActive(false) end
     end)
 end

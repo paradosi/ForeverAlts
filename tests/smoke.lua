@@ -513,6 +513,25 @@ do
     borin.talents = nil
     talentsView.pick = false
 end
+-- The open tab keeps its glow; another tab glows only while hovered
+do
+    local chars, items
+    for _, f in ipairs(allFrames) do
+        if rawget(f, "text") and f.text.text == "CHARACTERS" then chars = f end
+        if rawget(f, "text") and f.text.text == "ITEMS" then items = f end
+    end
+    SlashCmdList.FOREVERALTS("")
+    if not ForeverAltsFrame.shown then SlashCmdList.FOREVERALTS("") end
+    items.IsMouseOver = function() return false end
+    items.scripts.OnClick(items)
+    check(items.hoverGlow and items.hoverGlow.on, "tabs: the open tab glows")
+    items.scripts.OnLeave(items)
+    check(items.hoverGlow.on, "tabs: and keeps glowing when the pointer leaves")
+    chars.IsMouseOver = function() return false end
+    chars.scripts.OnClick(chars)
+    check(not items.hoverGlow.on and chars.hoverGlow.on, "tabs: the glow moves with the open tab")
+end
+
 -- The running glow: fades in, keeps every segment on the box's edge, fades out and hides
 do
     local box = CreateFrame("Frame")

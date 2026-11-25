@@ -1855,6 +1855,18 @@ local function Build()
         -- wowdb's running glow on hover, a box around the label clear of the underline
         b.hoverGlow = false
         T.HoverGlow(b, { 2, 7 })
+        -- The open tab keeps glowing; the others glow only under the pointer
+        b.keepGlow = function(self) return self.selected end
+        local SetSelected = b.SetSelected
+        b.SetSelected = function(self, on)
+            SetSelected(self, on)
+            if on then
+                self.hoverGlow = self.hoverGlow or T.Glow(self, nil, { 2, 7 })
+                self.hoverGlow:SetActive(true)
+            elseif self.hoverGlow and not self:IsMouseOver() then
+                self.hoverGlow:SetActive(false)
+            end
+        end
 
         local v = CreateFrame("Frame", nil, frame)
         v:SetPoint("TOPLEFT", PAD, -(HEAD + TABS + 12))
