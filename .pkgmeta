@@ -12,5 +12,6 @@ ignore:
   - .github
   - .gitignore
   - tests
+  - tools
   - media/art
   - media/screenshots

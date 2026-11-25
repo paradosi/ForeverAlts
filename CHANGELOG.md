@@ -37,6 +37,7 @@
 - **Armory** tab: a character's gear on a paperdoll (slots, item names and levels, weapons), their stats, and the
   live model for the character you're on (alts show their race crest with the round class icon; until an alt logs
   in once, the class icon alone). `/alts armory`.
+  Alts show Blizzard's Armory picture of them when the optional ForeverAlts_Renders data addon has one.
 - Items tab: a character dropdown. Pick someone to see their bags, bank, mail and gear as icon grids (quality borders,
   stack counts, item tooltips, Shift-click to link), each section saying when it was recorded or what to open to record
   it. *ALL CHARACTERS* is the search across everyone, as before.

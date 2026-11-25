@@ -24,6 +24,9 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   resistances) in a panel. The character you're on is shown as a live model you can turn by dragging; addons can't
   rebuild another character's looks, so an alt shows their race and class crest. Stats are recorded at login and
   whenever they change. `/alts armory`, or right-click a character → *Show gear (Armory)*.
+  Alts can also show **Blizzard's Armory picture** of them, if something puts it on disk: an addon can't download.
+  `tools/renders.py` does that for the author (Battle.net API → 512px TGA → a `ForeverAlts_Renders` data addon copied
+  to the game PC). Without it, alts show their crest. New pictures need a game restart.
 - **Professions**: every character's professions with skill bars and how many recipes they know. Click one to list
   that character's recipes (search narrows the list). Type in the search box to find which of your characters can make something.
 - **Reputation**: every faction any of your characters has met, grouped like the game's reputation panel, with each

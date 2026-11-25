@@ -771,9 +771,15 @@ do
     check(text:find("Stamina=50", 1, true) and text:find("Mana=1,500", 1, true) and not view.stats.hint.shown and text:find("Frost resist=15", 1, true)
         and text:find("Spell crit=7.25%", 1, true), "armory: the stats panel lists them")
     ns.ShowArmory("Dreamscythe|Borin Stonefist")
+    check(not view.render.shown, "armory: no picture without the data addon")
     check(not view.model.shown and view.classCrest.shown and view.stats.hint.shown and view.stats.hint.text:find("log in on Borin", 1, true)
         and not view.stats.lines[1].label.shown,
         "armory: an alt gets the crest, and a hint where stats are missing")
+    ForeverAltsRenders = { ["borin stonefist"] = { file = "borin-stonefist", updated = now - 7200 } }
+    ns.ShowArmory("Dreamscythe|Borin Stonefist")
+    check(view.render.shown and not view.classCrest.shown and not view.crest.shown
+        and view.modelHint.text:find("Armory picture, 2h ago", 1, true), "armory: an alt's Armory picture replaces the crest")
+    ForeverAltsRenders = nil
 end
 ns.ShowUI("chars")
 RunTimers()

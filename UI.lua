@@ -2131,6 +2131,10 @@ local function BuildArmory(view)
     view.crest = mid:CreateTexture(nil, "ARTWORK")
     view.crest:SetSize(128, 128)
     view.crest:SetPoint("CENTER", model, "CENTER", 0, 10)
+    -- An alt with an Armory picture (the ForeverAlts_Renders data addon, filled by tools/renders.py)
+    view.render = mid:CreateTexture(nil, "ARTWORK")
+    view.render:SetPoint("BOTTOM", model, "BOTTOM", 0, 18)
+    view.render:Hide()
     view.classCrest = mid:CreateTexture(nil, "OVERLAY")
     view.classCrest:SetSize(44, 44)
     view.classCrest:SetPoint("CENTER", view.crest, "BOTTOMRIGHT", -14, 14)
@@ -2255,16 +2259,27 @@ local function BuildArmory(view)
         else
             self.modelHint:SetText("The model shows for the character you're logged in on")
         end
+        -- An alt's Armory picture, when the data addon has one: it takes the crest's place
+        local render = not live and ForeverAltsRenders and c.name and ForeverAltsRenders[c.name:lower()]
+        self.render:SetShown(render and true or false)
+        if render then
+            local mw, mh = self.model:GetWidth(), self.model:GetHeight()
+            local size = math.floor(math.min((mw and mw > 0) and mw or 280, ((mh and mh > 0) and mh or 280) - 18))
+            self.render:SetSize(size, size)
+            self.render:SetTexture("Interface\\AddOns\\ForeverAlts_Renders\\renders\\" .. render.file .. ".tga")
+            self.modelHint:SetText("Armory picture, " .. ns.Ago(render.updated))
+        end
+
         -- The race crest needs the race and the sex (its face is a man's or a woman's): both are
         -- saved at login, so an alt not logged in since gets the class crest alone, large
         local race = c.raceFile or (c.race and c.race:gsub("%s+", ""))
         local raceAtlas = race and c.sex and GetRaceAtlas(race:lower(), c.sex == 3 and "female" or "male", true)
         local hasRace = raceAtlas and C_Texture.GetAtlasInfo(raceAtlas) ~= nil
-        self.crest:SetShown(not live and hasRace)
+        self.crest:SetShown(not live and not render and hasRace)
         if hasRace then self.crest:SetAtlas(raceAtlas) end
         -- The class crest: Blizzard's round class icons, as their portrait frames use
         local coords = c.class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[c.class]
-        self.classCrest:SetShown(not live and coords ~= nil)
+        self.classCrest:SetShown(not live and not render and coords ~= nil)
         if coords then
             self.classCrest:SetTexture("Interface\\TargetingFrame\\UI-Classes-Circles")
             self.classCrest:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
