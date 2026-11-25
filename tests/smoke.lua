@@ -495,21 +495,19 @@ do
     local borin = ForeverAltsDB.chars["Dreamscythe|Borin Stonefist"]
     borin.talents = ns.me.talents
     SlashCmdList.FOREVERALTS("talents")
-    local radios = {}
-    local root = { CreateTitle = function() end,
-        CreateRadio = function(_, text, isOn, pick) radios[#radios + 1] = { text = text, isOn = isOn, pick = pick } end }
-    local Real = MenuUtil.CreateContextMenu
-    MenuUtil.CreateContextMenu = function(owner, gen) gen(owner, root) end
     local talentsView
     for _, f in ipairs(allFrames) do if rawget(f, "charDrop") then talentsView = f end end
     local drop = talentsView.charDrop
     drop.scripts.OnClick(drop)
-    MenuUtil.CreateContextMenu = Real
-    check(#radios >= 2, "dropdown: lists the characters with talents (" .. #radios .. ")")
+    local rows = {}
+    for _, r in ipairs(drop.list.rows) do if r.shown and r.ch then rows[#rows + 1] = r end end
+    check(drop.list.shown and #rows == 2, "dropdown: opens with a row per character with talents (" .. #rows .. ")")
     local other
-    for _, r in ipairs(radios) do if not r.isOn() then other = r end end
-    other.pick()
-    check(other.isOn() and drop.label.text:find(other.text:match("|c%x%x%x%x%x%x%x%x(.-)|r"), 1, true) ~= nil, "dropdown: picking a character shows them")
+    for _, r in ipairs(rows) do if r.ch.key ~= talentsView.pick then other = r end end
+    local name = other.ch.name
+    other.scripts.OnClick(other)
+    check(not drop.list.shown and talentsView.pick == other.ch.key and drop.label.text:find(name, 1, true) ~= nil,
+        "dropdown: picking a character closes the list and shows them")
     borin.talents = nil
     talentsView.pick = false
 end

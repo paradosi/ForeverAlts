@@ -33,7 +33,7 @@
   Keep several named plans per class, and copy a plan as text to share it or paste one in.
   A plan is also a level order: hover LEVEL ORDER for it, the next talent is outlined, and when you have
   points to spend a chat line names the next one (can be turned off in Options).
-- The Talents tab picks its character from a dropdown (name, level and class) instead of a row of names.
+- The Talents tab picks its character from a dropdown in the window's own style (name, level and class) instead of a row of names.
 - The window is a little wider to fit the new column.
 - Fixed: in a narrow window the footer ran into the version number. It now ends with "…"; hover it for the whole line.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.

@@ -1547,21 +1547,85 @@ local function BuildTalents(view)
             drop:SetScript("OnEnter", function(b) b.arrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end)
             drop:SetScript("OnLeave", function(b) b.arrow:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
             drop.chars = {}
-            drop:SetScript("OnClick", function(b)
-                MenuUtil.CreateContextMenu(b, function(_, root)
-                    root:CreateTitle("Character")
-                    for _, ch in ipairs(b.chars) do
-                        local class = LOCALIZED_CLASS_NAMES_MALE[ch.class] or ch.class or ""
-                        local text = ns.ColorName(ch) .. "  |cff969db3" .. (ch.level or "?") .. " " .. class
-                            .. (ch == ns.me and "  · you" or "") .. "|r"
-                        root:CreateRadio(text, function() return self.pick == ch.key end, function()
-                            self.pick, self.group = ch.key, false
-                            box:Hide()
-                            self:Refresh()
-                        end)
+
+            -- The list drops from the box, in the window's own look: a row per character,
+            -- the shown one marked in gold. A click anywhere else, or Esc, closes it.
+            local ROW, MAXROWS = 24, 12
+            local list = CreateFrame("Frame", nil, drop)
+            list:SetFrameStrata("DIALOG")
+            list:SetPoint("TOPLEFT", drop, "BOTTOMLEFT", 0, -2)
+            local lbg = list:CreateTexture(nil, "BACKGROUND"); T.Fill(lbg, C.deep); lbg:SetAllPoints()
+            T.Border(list, C.accent)
+            list:Hide()
+            list:EnableMouse(true)
+            list:EnableMouseWheel(true)
+            list.rows, list.offset = {}, 0
+            drop.list = list
+
+            local function Pick(ch)
+                list:Hide()
+                self.pick, self.group = ch.key, false
+                box:Hide()
+                self:Refresh()
+            end
+            function list:Fill()
+                local chars = drop.chars
+                local shown = math.min(#chars, MAXROWS)
+                self.offset = math.max(0, math.min(self.offset, #chars - shown))
+                self:SetSize(math.max(drop:GetWidth(), 240), shown * ROW + 4)
+                for i = 1, shown do
+                    local r = self.rows[i]
+                    if not r then
+                        r = CreateFrame("Button", nil, self)
+                        r:SetHeight(ROW)
+                        r:SetPoint("TOPLEFT", 2, -2 - (i - 1) * ROW)
+                        r:SetPoint("TOPRIGHT", -2, -2 - (i - 1) * ROW)
+                        r.hover = r:CreateTexture(nil, "BACKGROUND"); T.Fill(r.hover, C.raised); r.hover:SetAllPoints(); r.hover:Hide()
+                        r.mark = r:CreateTexture(nil, "ARTWORK"); T.Fill(r.mark, C.accent)
+                        r.mark:SetPoint("TOPLEFT"); r.mark:SetPoint("BOTTOMLEFT"); r.mark:SetWidth(2)
+                        r.name = T.Text(r, T.monoMedium, 11, C.primary)
+                        r.name:SetPoint("LEFT", 10, 0)
+                        r.info = T.Text(r, T.mono, 10, C.muted, "RIGHT")
+                        r.info:SetPoint("RIGHT", -8, 0)
+                        r.name:SetPoint("RIGHT", r.info, "LEFT", -8, 0)
+                        r.ch = false
+                        r:SetScript("OnEnter", function(b) b.hover:Show() end)
+                        r:SetScript("OnLeave", function(b) b.hover:Hide() end)
+                        r:SetScript("OnClick", function(b) if b.ch then Pick(b.ch) end end)
+                        self.rows[i] = r
                     end
-                end)
+                    local ch = chars[i + self.offset]
+                    r.ch = ch
+                    r.name:SetText(ns.ColorName(ch) .. (ch == ns.me and "  |cff969db3· you|r" or ""))
+                    r.info:SetText((ch.level or "?") .. " " .. (LOCALIZED_CLASS_NAMES_MALE[ch.class] or ch.class or ""))
+                    local on = ch.key == self.owner.pick
+                    r.mark:SetShown(on)
+                    local col = on and C.accent or C.muted
+                    r.info:SetTextColor(col[1], col[2], col[3])
+                    r:Show()
+                end
+                for i = shown + 1, #self.rows do self.rows[i]:Hide(); self.rows[i].ch = false end
+            end
+            list.owner = self
+            list:SetScript("OnMouseWheel", function(l, delta) l.offset = l.offset - delta; l:Fill() end)
+            list:SetScript("OnUpdate", function(l)
+                if (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton"))
+                    and not l:IsMouseOver() and not drop:IsMouseOver() then l:Hide() end
             end)
+            list:SetScript("OnKeyDown", function(l, key)
+                if key == "ESCAPE" then l:SetPropagateKeyboardInput(false); l:Hide()
+                else l:SetPropagateKeyboardInput(true) end
+            end)
+            list:SetScript("OnShow", function(l) l:EnableKeyboard(true) end)
+            list:SetScript("OnHide", function(l) l:EnableKeyboard(false); drop.arrow:SetText("▾") end)
+            drop:SetScript("OnClick", function(b)
+                if list:IsShown() then list:Hide(); return end
+                list.offset = 0
+                list:Fill()
+                list:Show()
+                b.arrow:SetText("▴")
+            end)
+            view:HookScript("OnHide", function() list:Hide() end)
             self.charDrop = drop
         end
         drop.chars = chars
