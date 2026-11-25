@@ -22,6 +22,8 @@
 - **Talents**: a new tab drawing each character's three talent trees, with ranks, prerequisite arrows and
   spell tooltips, both specs with dual spec, and *Copy loadout code* for the game's Import. A TALENTS column on
   the Characters tab shows points per tree and any unspent. Right-click a character for *Show talents*.
+- **Legacy trees**: the Talents tab's LEGACY button shows each character's Legacy System trees (Professions,
+  Adventure, Progression), with Legacy points to spend and Legacy renown. `/alts legacy` opens it.
 - The window is a little wider to fit the new column.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.
   The *Made by* line follows them too.

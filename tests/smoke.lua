@@ -225,6 +225,13 @@ local talentNodes = {
     [102] = { ID = 102, posX = 1000, posY = 1600, isVisible = true, groupIDs = { 12 }, entryIDs = { 202 }, currentRank = 2, maxRanks = 3, visibleEdges = {} },
     [103] = { ID = 103, posX = 1600, posY = 1000, isVisible = true, groupIDs = { 11 }, entryIDs = { 203 }, currentRank = 0, maxRanks = 5, visibleEdges = {} },
 }
+-- The Legacy System: renown 3; Professions has one talent (1/1), Adventure two
+-- (2/2 leading to 1/3), Progression none
+talentNodes[301] = { ID = 301, posX = 500, posY = 500, isVisible = true, entryIDs = { 401 }, currentRank = 1, maxRanks = 1, visibleEdges = {} }
+talentNodes[302] = { ID = 302, posX = 500, posY = 500, isVisible = true, entryIDs = { 402 }, currentRank = 2, maxRanks = 2,
+                     visibleEdges = { { targetNode = 303 } } }
+talentNodes[303] = { ID = 303, posX = 500, posY = 900, isVisible = true, entryIDs = { 403 }, currentRank = 1, maxRanks = 3, visibleEdges = {} }
+C_MajorFactions = { GetCurrentRenownLevel = function(id) return id == 2802 and 3 or 0 end }
 C_ClassTalents = { GetActiveConfigID = function() return 77 end }
 C_SpecializationInfo = {
     GetActiveSpecGroup = function() return 1 end,
@@ -238,11 +245,20 @@ C_Traits = {
                  { groupID = 12, orderIndex = 2, displayName = "Fire", icon = 2 } }
     end,
     GetGroupCurrencyInfo = function() return { { traitNodeGroupID = 12, currencyInfos = { { spent = 7 } } } } end,
-    GetTreeNodes = function() return { 101, 102, 103 } end,
+    GetTreeNodes = function(tree)
+        if tree == 1187 then return { 301 } elseif tree == 1188 then return { 302, 303 } elseif tree == 1189 then return {} end
+        return { 101, 102, 103 }
+    end,
+    GetConfigIDByTreeID = function(tree) return tree + 10000 end,
     GetNodeInfo = function(_, id) return talentNodes[id] end,
     GetEntryInfo = function(_, e) return { definitionID = e + 100 } end,
     GetDefinitionInfo = function(d) return { spellID = d * 10 } end,
-    GetTreeCurrencyInfo = function() return { { quantity = 2 } } end,
+    GetTreeCurrencyInfo = function(_, tree)
+        if tree == 1188 then return { { quantity = 4, maxQuantity = 40, spentInTree = 3, spent = 6 } } end
+        if tree == 1187 then return { { quantity = 4, maxQuantity = 40, spentInTree = 1, spent = 6 } } end
+        if tree == 1189 then return { { quantity = 4, maxQuantity = 40, spentInTree = 0, spent = 6 } } end
+        return { { quantity = 2 } }
+    end,
     GenerateImportString = function() return "BAAAAAAAAtalentcode" end,
 }
 C_Spell = C_Spell or {}
@@ -347,6 +363,11 @@ local fireball
 for _, n in ipairs(spec and spec.nodes or {}) do if n.s == 3010 then fireball = n end end
 check(fireball and fireball.t == 2 and fireball.r == 5 and fireball.e and spec.nodes[fireball.e[1]].s == 3020, "talents: rank and prerequisite arrow")
 check(ns.SpecSummary(spec) == "0/7/0" and select(2, ns.SpecSummary(spec)) == "Fire", "talents: summary names the top tree")
+
+-- Legacy: three trees in one list, the arrow kept inside its own tree
+local lg = me.legacy
+check(lg and lg.renown == 3 and lg.unspent == 4 and #lg.trees == 3 and lg.trees[2].spent == 3, "legacy: renown, points to spend, points per tree")
+check(lg and #lg.nodes == 3 and lg.nodes[1].t == 1 and lg.nodes[2].t == 2 and lg.nodes[2].e and lg.nodes[2].e[1] == 3, "legacy: talents in their trees, arrow shifted")
 
 -- Mail: nothing is read until the server answers, then the inbox is counted
 Fire("MAIL_SHOW")
@@ -459,6 +480,11 @@ for _, f in ipairs(allFrames) do if rawget(f, "node") then drawn = drawn + 1 end
 check(drawn == 3, "talents: every talent placed (" .. drawn .. ")")
 ns.ShowTalents("Dreamscythe|Borin Stonefist")
 check(ForeverAltsFrame.footer.text:find("Aelin", 1, true) ~= nil, "talents: a character without talents falls back")
+SlashCmdList.FOREVERALTS("legacy")
+check(ForeverAltsFrame.footer.text:find("Legacy Professions 1, Adventure 3, Progression 0", 1, true) ~= nil
+    and ForeverAltsFrame.footer.text:find("4 Legacy points to spend", 1, true) ~= nil, "legacy: tab draws the Legacy trees")
+SlashCmdList.FOREVERALTS("talents")
+check(ForeverAltsFrame.footer.text:find("Fire 0/7/0", 1, true) ~= nil, "legacy: CLASS goes back to the class trees")
 SlashCmdList.FOREVERALTS("locks")
 check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
 now = now + 5 * 86400

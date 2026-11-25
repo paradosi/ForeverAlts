@@ -104,7 +104,8 @@ local function CharacterMenu(row)
         root:CreateTitle(c.realm ~= "" and (c.name .. " · " .. c.realm) or c.name)
         root:CreateButton("Browse items", function() ns.ShowUI("items", "", c.key) end)
         root:CreateButton("Show reputation", function() ns.ShowUI("reps", "", c.key) end)
-        root:CreateButton("Show talents", function() ns.ShowTalents(c.key) end)
+        root:CreateButton("Show talents", function() ns.ShowTalents(c.key, "class") end)
+        if c.legacy then root:CreateButton("Show Legacy trees", function() ns.ShowTalents(c.key, "legacy") end) end
         root:CreateButton("Forget this character", function()
             StaticPopupDialogs.FOREVERALTS_FORGET = forgetDialog
             StaticPopup_Show("FOREVERALTS_FORGET", c.name, nil, c.key)
@@ -201,6 +202,11 @@ local function BuildCharacters(view)
                 local label = (t.specs[2] and (group == t.active and "Talents (active)" or "Talents (other spec)")) or "Talents"
                 local unspent = (spec.unspent or 0) > 0 and ("  |cfff3a982+" .. spec.unspent .. " unspent|r") or ""
                 GameTooltip:AddDoubleLine(label, (top and (top .. " ") or "") .. points .. unspent, 0.588, 0.616, 0.702, 1, 1, 1)
+            end
+            local lg = c.legacy
+            if lg then
+                GameTooltip:AddDoubleLine("Legacy", "renown " .. (lg.renown or "?") .. ", " .. (lg.unspent or 0) .. " points to spend",
+                    0.588, 0.616, 0.702, 1, 1, 1)
             end
             if c.lockoutsSeen then
                 local locks = ns.Lockouts(c)
@@ -951,12 +957,13 @@ end
 
 -- One character's three trees, redrawn from what was saved: each talent's icon at its
 -- place in the grid, its rank, and arrows for prerequisites. A row of names along the
--- top picks the character; dual spec adds a pair of spec buttons.
+-- top picks the character; dual spec adds a pair of spec buttons. CLASS / LEGACY switches
+-- between the class trees and the Legacy System's three trees (Forever's own).
 
 local MAXED, PARTIAL = C.accent, { 0.533, 0.812, 0.490 }
 
 local function BuildTalents(view)
-    view.pick, view.group, view.spec = false, false, false
+    view.pick, view.group, view.spec, view.mode = false, false, false, "class"
     view.picks, view.specButtons, view.panels = {}, {}, {}
 
     -- Copy the loadout code: a field with the code selected, ready for Ctrl+C
@@ -996,6 +1003,22 @@ local function BuildTalents(view)
     view.hint:SetPoint("TOPRIGHT", -PAD, -120)
     view.hint:SetWordWrap(true)
 
+    -- CLASS / LEGACY, at the right end of the top row
+    view.modes = {}
+    for i, m in ipairs({ { "legacy", "LEGACY" }, { "class", "CLASS" } }) do
+        local b = T.TextButton(view, m[2], 10)
+        b:SetScript("OnClick", function() view.mode = m[1]; box:Hide(); view:Refresh() end)
+        b:ClearAllPoints()
+        if i == 1 then b:SetPoint("TOPRIGHT", 0, 0) else b:SetPoint("RIGHT", view.modes[1], "LEFT", 0, 0) end
+        view.modes[m[1]] = b
+        view.modes[i] = b
+    end
+    local sep = T.Text(view, T.mono, 10, C.border)
+    sep:SetPoint("RIGHT", view.modes[2], "LEFT", -2, 0)
+    sep:SetText("|")
+    view.copy:ClearAllPoints()
+    view.copy:SetPoint("RIGHT", sep, "LEFT", -6, 0)
+
     local function Panel(i)
         local p = view.panels[i]
         if p then return p end
@@ -1032,7 +1055,7 @@ local function BuildTalents(view)
             local n = self.node
             if not n then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetSpellByID(n.s)
+            if n.s then GameTooltip:SetSpellByID(n.s) else GameTooltip:AddLine(n.n or "?") end
             GameTooltip:AddLine("Rank " .. n.r .. " / " .. n.m, 0.890, 0.714, 0.392)
             GameTooltip:Show()
         end)
@@ -1050,12 +1073,13 @@ local function BuildTalents(view)
         return l
     end
 
-    -- The game's positions to a grid: the smallest step between two talents is one cell
-    local function Step(nodes, key)
+    -- The game's positions to a grid: the smallest step between two talents of a tree is
+    -- one cell. Each tree is measured alone: the Legacy trees are separate trait trees.
+    local function Step(nodes, key, tree)
         local seen, list = {}, {}
         for _, node in ipairs(nodes) do
             local v = node[key]
-            if not seen[v] then seen[v] = true; list[#list + 1] = v end
+            if node.t == tree and not seen[v] then seen[v] = true; list[#list + 1] = v end
         end
         table.sort(list)
         local step
@@ -1077,15 +1101,17 @@ local function BuildTalents(view)
         local panelW = n > 0 and math.floor((width - gap * (n - 1)) / n) or 0
         local panelH = height - top
 
-        local stepX = Step(nodes, "x")
-        local stepY, minY = Step(nodes, "y")
-        local minX, cols, rows = {}, {}, 1
-        for _, node in ipairs(nodes) do
-            if not minX[node.t] or node.x < minX[node.t] then minX[node.t] = node.x end
+        local grid = {}
+        for i = 1, n do
+            local sx, mx = Step(nodes, "x", i)
+            local sy, my = Step(nodes, "y", i)
+            grid[i] = { sx = sx, mx = mx, sy = sy, my = my }
         end
+        local cols, rows = {}, 1
         for _, node in ipairs(nodes) do
-            node.col = math.floor((node.x - minX[node.t]) / stepX + 0.5)
-            node.row = math.floor((node.y - minY) / stepY + 0.5)
+            local g = grid[node.t] or { sx = 1, mx = node.x, sy = 1, my = node.y }
+            node.col = math.floor((node.x - g.mx) / g.sx + 0.5)
+            node.row = math.floor((node.y - g.my) / g.sy + 0.5)
             cols[node.t] = math.max(cols[node.t] or 1, node.col + 1)
             rows = math.max(rows, node.row + 1)
         end
@@ -1101,7 +1127,7 @@ local function BuildTalents(view)
                 p:ClearAllPoints()
                 p:SetPoint("TOPLEFT", (i - 1) * (panelW + gap), -top)
                 p:SetSize(panelW, panelH)
-                p.icon:SetTexture(tree.icon)
+                if tree.atlas then p.icon:SetAtlas(tree.atlas) else p.icon:SetTexture(tree.icon) end
                 p.name:SetText(tree.name)
                 p.spent:SetText(tostring(tree.spent or 0))
                 p.left = math.floor((panelW - (cols[i] or maxCols) * cell) / 2)
@@ -1159,18 +1185,23 @@ local function BuildTalents(view)
     view:SetScript("OnSizeChanged", function(self) if self.spec then self:Draw(self.spec) end end)
 
     function view:Refresh()
+        local legacy = self.mode == "legacy"
+        local function Has(c) if legacy then return c.legacy ~= nil end return c.talents ~= nil end
+        self.modes.class:SetSelected(not legacy)
+        self.modes.legacy:SetSelected(legacy)
+
         local chars, recorded = {}, 0
         for _, c in ipairs(ns:Characters()) do
-            if c.talents then chars[#chars + 1] = c; recorded = recorded + 1 end
+            if Has(c) then chars[#chars + 1] = c; recorded = recorded + 1 end
         end
         table.sort(chars, function(a, b)
             if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
             return a.name < b.name
         end)
         local c = self.pick and ns.db.chars[self.pick]
-        if not (c and c.talents) then
-            c = (ns.me and ns.me.talents and ns.me) or chars[1]
-            self.pick = c and c.key or false
+        if not (c and Has(c)) then
+            c = (ns.me and Has(ns.me) and ns.me) or chars[1]
+            if c then self.pick = c.key end
             self.group = false
         end
 
@@ -1193,9 +1224,10 @@ local function BuildTalents(view)
         end
         for i = #chars + 1, #self.picks do self.picks[i]:Hide() end
 
-        local t = c and c.talents
+        local t = c and not legacy and c.talents
         local group = (self.group and t and t.specs[self.group]) and self.group or (t and t.active) or 1
-        local spec = t and t.specs[group] or false
+        local spec
+        if legacy then spec = c and c.legacy or false else spec = t and t.specs[group] or false end
         self.spec = spec
 
         -- Dual spec: a button per spec, beside the copy button
@@ -1210,15 +1242,18 @@ local function BuildTalents(view)
             b:SetShown(dual)
             b:SetSelected(g == group)
         end
+        box.code = (not legacy and spec and spec.code) or false
+        self.copy:SetShown(box.code and true or false)
         self.specButtons[2]:ClearAllPoints()
-        self.specButtons[2]:SetPoint("RIGHT", self.copy, "LEFT", -6, 0)
+        self.specButtons[2]:SetPoint("RIGHT", box.code and self.copy or self.modes[2], "LEFT", -12, 0)
         self.specButtons[1]:ClearAllPoints()
         self.specButtons[1]:SetPoint("RIGHT", self.specButtons[2], "LEFT", 0, 0)
-        box.code = spec and spec.code or false
-        self.copy:SetShown(box.code and true or false)
 
         self.hint:SetShown(not spec)
-        if not c then
+        if legacy and not c then
+            self.hint:SetText("No Legacy trees recorded yet. They're read when you log in on a character with the Legacy System open "
+                .. "(Legacy renown 1 or more), and whenever you change them.")
+        elseif not c then
             self.hint:SetText("No talents recorded yet. They're read when you log in on a character, and whenever you change them.")
         elseif not spec then
             self.hint:SetText(c.name .. " has no talents to show yet.")
@@ -1226,7 +1261,14 @@ local function BuildTalents(view)
         self:Draw(spec)
         if not box:IsShown() then
             local foot = {}
-            if c and spec then
+            if c and spec and legacy then
+                local parts = {}
+                for _, tree in ipairs(spec.trees) do parts[#parts + 1] = tree.name .. " " .. (tree.spent or 0) end
+                foot[#foot + 1] = c.name .. "   ·   Legacy " .. table.concat(parts, ", ")
+                foot[#foot + 1] = (spec.unspent or 0) .. " Legacy point" .. (spec.unspent == 1 and "" or "s") .. " to spend"
+                if spec.renown then foot[#foot + 1] = "renown " .. spec.renown end
+                foot[#foot + 1] = "recorded " .. ns.Ago(spec.seen)
+            elseif c and spec then
                 local points, top = ns.SpecSummary(spec)
                 foot[#foot + 1] = c.name .. "   ·   " .. (top and (top .. " ") or "") .. points
                 if (spec.unspent or 0) > 0 then foot[#foot + 1] = spec.unspent .. " unspent" end
@@ -1234,7 +1276,9 @@ local function BuildTalents(view)
                 foot[#foot + 1] = "recorded " .. ns.Ago(t.seen)
             end
             local missing = #ns:Characters() - recorded
-            if missing > 0 then foot[#foot + 1] = missing .. " not recorded yet: log in on them" end
+            if missing > 0 then
+                foot[#foot + 1] = missing .. (legacy and " without Legacy trees recorded" or " not recorded yet: log in on them")
+            end
             SetFooter(table.concat(foot, "   ·   "))
         end
     end
@@ -1402,11 +1446,13 @@ function ns.ShowUI(view, query, onlyKey)
     Select(view)
 end
 
--- The Talents tab, showing one character (a key; nil keeps the current pick)
-function ns.ShowTalents(key)
+-- The Talents tab, showing one character (a key; nil keeps the current pick), on the
+-- class trees or the Legacy trees (mode "class" | "legacy"; nil keeps the current one)
+function ns.ShowTalents(key, mode)
     if not ns.me then return end
     if not frame then Build() end
     if key then views.talents.pick, views.talents.group = key, false end
+    if mode then views.talents.mode = mode end
     ns.ShowUI("talents")
 end
 

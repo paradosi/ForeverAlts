@@ -28,7 +28,8 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
 - **Talents**: each character's three talent trees, redrawn in the window with every talent's rank and the
   arrows between them; hover a talent for its spell. Dual spec shows both specs. *Copy loadout code* gives the
   build's code for the game's own Import, to copy a build to another character. The Characters tab has a
-  TALENTS column (`0/21/30`, with unspent points in orange).
+  TALENTS column (`0/21/30`, with unspent points in orange). **LEGACY** switches the tab to the Legacy System's three
+  trees (Professions, Adventure, Progression) with Legacy points to spend and Legacy renown.
 - **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
   account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
 - **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a
@@ -104,6 +105,7 @@ standings. Click the *ONLY …* chip on either tab to clear it. Right-clicking a
 | `/alts profs <text>` | Open the Professions tab searching recipes for `<text>` |
 | `/alts reps <text>` | Open the Reputation tab searching factions for `<text>` |
 | `/alts talents` | Open the Talents tab (also `/alts spec`) |
+| `/alts legacy` | Open the Talents tab on the Legacy trees |
 | `/alts locks` | Open the Lockouts tab (also `/alts lockouts`, `/alts raids`) |
 | `/alts options` | Open the options panel |
 | `/alts reset` | Put the window back to its usual size, in the middle of the screen |
@@ -208,6 +210,12 @@ Vanilla trees: one trait tree per class whose nodes are split into three groups.
 spent (`GetGroupCurrencyInfo`), and every visible node's position, spell, rank and outgoing edges. The view turns the
 game's positions into a grid (the smallest gap between two talents is one cell) and scales it to the window.
 `C_Traits.GenerateImportString` gives the loadout code.
+
+**Legacy trees.** Forever's Legacy System (`Blizzard_LegacySystem`) is three more trait trees, IDs 1187 Professions,
+1188 Adventure and 1189 Progression (`Constants.LegacyConsts`), each with its own config
+(`C_Traits.GetConfigIDByTreeID`), paid for with one Legacy point currency. It opens at Legacy renown 1
+(`C_MajorFactions.GetCurrentRenownLevel(2802)`); before that nothing is recorded. They're saved as `c.legacy` in the
+same shape as a spec, so the same drawing code shows them.
 
 **Recipes** come from `C_TradeSkillUI` when your own profession window opens. Linked professions, guild lists
 and NPC crafting orders are ignored. Each learned recipe's output item comes from `GetRecipeSchematic`, which
