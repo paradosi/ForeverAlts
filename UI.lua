@@ -76,7 +76,7 @@ local function CharacterMenu(row)
     local c = row.item
     if not c then return end
     MenuUtil.CreateContextMenu(row, function(_, root)
-        root:CreateTitle(c.name .. " · " .. c.realm)
+        root:CreateTitle(c.realm ~= "" and (c.name .. " · " .. c.realm) or c.name)
         root:CreateButton("Browse items", function() ns.ShowUI("items", "", c.key) end)
         root:CreateButton("Forget this character", function()
             StaticPopupDialogs.FOREVERALTS_FORGET = forgetDialog
@@ -138,7 +138,10 @@ local function BuildCharacters(view)
             if not c then return end
             GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 12, 0)
             GameTooltip:AddLine(ns.ColorName(c))
-            GameTooltip:AddLine(string.format("Level %s %s %s · %s", c.level or "?", c.race or "", c.class and (LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or "", c.realm), 0.761, 0.784, 0.855)
+            local line = string.format("Level %s %s %s", c.level or "?", c.race or "",
+                c.class and (LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or "")
+            if c.realm and c.realm ~= "" then line = line .. " · " .. c.realm end
+            GameTooltip:AddLine(line, 0.761, 0.784, 0.855)
             if c.playedLevel then GameTooltip:AddDoubleLine("Played this level", ns.Duration(c.playedLevel), 0.588, 0.616, 0.702, 1, 1, 1) end
             for _, p in ipairs(c.profs or {}) do
                 GameTooltip:AddDoubleLine(p.name, p.rank .. " / " .. p.max, 0.588, 0.616, 0.702, 1, 1, 1)

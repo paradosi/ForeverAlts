@@ -28,8 +28,12 @@ local function Create()
         "Every character holding the item, with how many are in their bags, bank and gear, plus the account bank.")
     Checkbox("tooltipSelf", "Include the character you're playing",
         "Off: the tooltip lists only your other characters.")
-    Checkbox("allRealms", "Include characters on other realms",
-        "Off: only characters on the realm you're playing on are counted.")
+    -- Forever has no realms (GetRealmName() is ""; names are unique across the region),
+    -- so the option only appears where there is a realm to choose
+    if GetRealmName() ~= "" then
+        Checkbox("allRealms", "Include characters on other realms",
+            "Off: only characters on the realm you're playing on are counted.")
+    end
     Checkbox("tooltipCraft", "Show who can make the item",
         "A \"Made by\" line naming the characters who know the recipe. Recipes are recorded when you open a profession window.")
 

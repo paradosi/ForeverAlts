@@ -10,10 +10,11 @@ local bankOpen = false
 local function Remember(itemID, link, quality, icon)
     local items = ns.db.items
     local known = items[itemID]
-    if known and known.name and known.link then return end
+    if known and known.name and known.name ~= "" and known.link then return end
+    -- Forever writes links with empty brackets ("|h[]|h") for items not cached yet
     local name = link and link:match("%[(.-)%]")
-    if not name then name = C_Item.GetItemNameByID(itemID) end
-    if not name then return end
+    if not name or name == "" then name = C_Item.GetItemNameByID(itemID) end
+    if not name or name == "" then return end
     items[itemID] = {
         name = name,
         quality = quality or C_Item.GetItemQualityByID(itemID),
@@ -194,7 +195,8 @@ ns:On("PLAYER_LOGIN", function()
     -- Professions can be empty this early; ask again once the skill lines are in
     C_Timer.After(3, ScanSkills)
     if not me.played then
-        C_Timer.After(4, RequestTimePlayed)
+        -- C_Timer.After on Forever rejects a C function as the callback: wrap it
+        C_Timer.After(4, function() RequestTimePlayed() end)
     end
 end)
 

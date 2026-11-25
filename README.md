@@ -135,7 +135,8 @@ Releasing follows the shared pipeline: `wowdev bump ForeverAlts X.Y.Z -w`, updat
 
 ## How it works
 
-**One record per character**, keyed `Realm|First Last`. Forever names have a surname, and `UnitName("player")`
+**One record per character**, keyed `Realm|First Last`. On Forever `GetRealmName()` returns an empty
+string (names are unique across the whole region), so the realm part is empty and the realm is never shown. Forever names have a surname, and `UnitName("player")`
 returns the first name and surname as two separate values. Keying on the first name alone would merge two
 alts who share one, so the key joins them.
 
