@@ -34,6 +34,8 @@
   A plan is also a level order: hover LEVEL ORDER for it, the next talent is outlined, and when you have
   points to spend a chat line names the next one (can be turned off in Options).
 - The Talents tab picks its character from a dropdown in the window's own style (name, level and class) instead of a row of names.
+- The right-click menu on a character is now in the window's own style (gold-bordered, opens at the pointer), and its
+  rows, like the dropdown's, glow on hover. *Forget this character* is in orange.
 - **Armory** tab: a character's gear on a paperdoll (slots, item names and levels, weapons), their stats, and the
   live model for the character you're on (alts show their race crest with the round class icon; until an alt logs
   in once, the class icon alone). `/alts armory`.

@@ -726,6 +726,29 @@ now = now + 5 * 86400
 ns.ShowUI("locks")
 check(ForeverAltsFrame.footer.text:find("0 of 2 characters saved", 1, true) ~= nil, "lockouts: a lockout past its reset is over")
 now = now - 5 * 86400
+-- The right-click menu: our own, at the pointer; its rows glow and act
+do
+    GetCursorPosition = GetCursorPosition or function() return 500, 400 end
+    local row = { item = ForeverAltsDB.chars["Dreamscythe|Borin Stonefist"] }
+    ns.CharacterMenu(row)
+    local menuFrame
+    for _, f in ipairs(allFrames) do if rawget(f, "closeArmed") ~= nil then menuFrame = f end end
+    local texts = {}
+    for _, r in ipairs(menuFrame.rows) do if r.shown then texts[#texts + 1] = r.text.text end end
+    check(menuFrame.shown and texts[2] == "Browse items" and texts[#texts] == "Forget this character",
+        "menu: shows the character's actions (" .. #texts .. ")")
+    local browse
+    for _, r in ipairs(menuFrame.rows) do if r.shown and r.text.text == "Browse items" then browse = r end end
+    browse.IsMouseOver = function() return false end
+    browse.scripts.OnEnter(browse)
+    check(browse.hoverGlow and browse.hoverGlow.on, "menu: a row glows on hover")
+    browse.scripts.OnClick(browse)
+    check(not menuFrame.shown and ForeverAltsFrame.footer.text:find("Borin Stonefist", 1, true) ~= nil,
+        "menu: a click acts (Borin's items) and closes it")
+    ns.ShowUI("items", "", false)
+    ns.ShowUI("chars")
+end
+
 -- Items: one character from the dropdown shows a grid by place; the search filters it
 do
     ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")

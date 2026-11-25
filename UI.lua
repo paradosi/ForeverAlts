@@ -97,22 +97,114 @@ local forgetDialog = {
     timeout = 0, whileDead = true, hideOnEscape = true,
 }
 
+---- A right-click menu in the window's own look, at the pointer: a title, then a row per
+---- action that glows on hover. A click elsewhere or Esc closes it. One menu, reused.
+---- entries: { title = "…" } or { text = "…", func = fn, danger = true }
+
+local menu
+function ns.Menu(entries)
+    if not menu then
+        menu = CreateFrame("Frame", nil, UIParent)
+        menu:SetFrameStrata("FULLSCREEN_DIALOG")
+        menu:SetClampedToScreen(true)
+        menu:EnableMouse(true)
+        local bg = menu:CreateTexture(nil, "BACKGROUND"); T.Fill(bg, C.deep); bg:SetAllPoints()
+        T.Border(menu, C.accent)
+        menu.rows = {}
+        menu:Hide()
+        menu:SetScript("OnUpdate", function(m)
+            if (IsMouseButtonDown("LeftButton") or IsMouseButtonDown("RightButton")) and not m:IsMouseOver() then
+                m.closeArmed = true
+            elseif m.closeArmed then
+                m.closeArmed = false
+                m:Hide()
+            end
+        end)
+        menu:SetScript("OnKeyDown", function(m, key)
+            if key == "ESCAPE" then m:SetPropagateKeyboardInput(false); m:Hide()
+            else m:SetPropagateKeyboardInput(true) end
+        end)
+        menu:SetScript("OnShow", function(m) m:EnableKeyboard(true) end)
+        menu:SetScript("OnHide", function(m) m:EnableKeyboard(false) end)
+        menu.closeArmed = false
+    end
+    local ROW, width, y = 24, 200, -4
+    for i, e in ipairs(entries) do
+        local r = menu.rows[i]
+        if not r then
+            r = CreateFrame("Button", nil, menu)
+            r:SetHeight(ROW)
+            r.hover = r:CreateTexture(nil, "BACKGROUND"); T.Fill(r.hover, C.raised); r.hover:SetAllPoints(); r.hover:Hide()
+            r.text = T.Text(r, T.mono, 11, C.primary)
+            r.text:SetPoint("LEFT", 12, 0)
+            r.text:SetPoint("RIGHT", -12, 0)
+            r.func = false
+            r:SetScript("OnEnter", function(b) if b.func then b.hover:Show() end end)
+            r:SetScript("OnLeave", function(b) b.hover:Hide() end)
+            r:SetScript("OnClick", function(b)
+                if not b.func then return end
+                menu:Hide()
+                b.func()
+            end)
+            r.hoverGlow = false
+            T.HoverGlow(r, { 1, 1 })
+            r.keepGlow = function(b) return false end
+            menu.rows[i] = r
+        end
+        r:ClearAllPoints()
+        r:SetPoint("TOPLEFT", 2, y)
+        r:SetPoint("TOPRIGHT", -2, y)
+        if e.title then
+            r.func = false
+            r.text:SetFont(T.display, 13, "")
+            r.text:SetText(e.title)
+            r:EnableMouse(false)
+            r:SetHeight(ROW + 4)
+            y = y - (ROW + 4)
+        else
+            r.func = e.func
+            r.text:SetFont(T.mono, 11, "")
+            local col = e.danger and C.place or C.secondary
+            r.text:SetText(e.text)
+            r.text:SetTextColor(col[1], col[2], col[3])
+            r:EnableMouse(true)
+            r:SetHeight(ROW)
+            y = y - ROW
+        end
+        if e.title then r.text:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end
+        local w = r.text:GetStringWidth()
+        if w and w > 0 then width = math.max(width, w + 28) end
+        r:Show()
+    end
+    for i = #entries + 1, #menu.rows do menu.rows[i]:Hide(); menu.rows[i].func = false end
+    menu:SetSize(width, -y + 4)
+    local x, cy = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    menu:ClearAllPoints()
+    menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale + 2, cy / scale - 2)
+    menu.closeArmed = false
+    menu:Show()
+    return menu
+end
+
 local function CharacterMenu(row)
     local c = row.item
     if not c then return end
-    MenuUtil.CreateContextMenu(row, function(_, root)
-        root:CreateTitle(c.realm ~= "" and (c.name .. " · " .. c.realm) or c.name)
-        root:CreateButton("Browse items", function() ns.ShowUI("items", "", c.key) end)
-        root:CreateButton("Show reputation", function() ns.ShowUI("reps", "", c.key) end)
-        root:CreateButton("Show gear (Armory)", function() ns.ShowArmory(c.key) end)
-        root:CreateButton("Show talents", function() ns.ShowTalents(c.key, "class") end)
-        if c.legacy then root:CreateButton("Show Legacy trees", function() ns.ShowTalents(c.key, "legacy") end) end
-        root:CreateButton("Forget this character", function()
-            StaticPopupDialogs.FOREVERALTS_FORGET = forgetDialog
-            StaticPopup_Show("FOREVERALTS_FORGET", c.name, nil, c.key)
-        end)
-    end)
+    local entries = {
+        { title = ns.ColorName(c) .. ((c.realm or "") ~= "" and ("  |cff969db3" .. c.realm .. "|r") or "") },
+        { text = "Browse items", func = function() ns.ShowUI("items", "", c.key) end },
+        { text = "Show gear (Armory)", func = function() ns.ShowArmory(c.key) end },
+        { text = "Show talents", func = function() ns.ShowTalents(c.key, "class") end },
+    }
+    if c.legacy then entries[#entries + 1] = { text = "Show Legacy trees", func = function() ns.ShowTalents(c.key, "legacy") end } end
+    entries[#entries + 1] = { text = "Show reputation", func = function() ns.ShowUI("reps", "", c.key) end }
+    entries[#entries + 1] = { text = "Forget this character", danger = true, func = function()
+        StaticPopupDialogs.FOREVERALTS_FORGET = forgetDialog
+        StaticPopup_Show("FOREVERALTS_FORGET", c.name, nil, c.key)
+    end }
+    ns.Menu(entries)
 end
+ns.CharacterMenu = CharacterMenu
 
 -- Every column keeps its width except LOCATION, which takes what the window has spare
 local FLEX, FLEX_MIN, GUTTER = "zone", 110, 8
@@ -388,6 +480,8 @@ function ns.CharDropdown(parent, onPick)
                 r.ch, r.entry = false, false
                 r:SetScript("OnEnter", function(b) b.hover:Show() end)
                 r:SetScript("OnLeave", function(b) b.hover:Hide() end)
+                r.hoverGlow = false
+                T.HoverGlow(r, { 1, 1 })
                 r:SetScript("OnClick", function(b)
                     if not b.entry then return end
                     list:Hide()
