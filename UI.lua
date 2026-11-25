@@ -1073,21 +1073,36 @@ local function BuildTalents(view)
         return l
     end
 
-    -- The game's positions to a grid: the smallest step between two talents of a tree is
-    -- one cell. Each tree is measured alone: the Legacy trees are separate trait trees.
-    local function Step(nodes, key, tree)
-        local seen, list = {}, {}
-        for _, node in ipairs(nodes) do
-            local v = node[key]
-            if node.t == tree and not seen[v] then seen[v] = true; list[#list + 1] = v end
+    -- The game's positions to a grid. Forever's talent data has slips in it: a few
+    -- positions are off by 10 (5740 among 5730s) and a few have a digit too many (39300
+    -- for 3930). So a value far above the tree's median loses that digit, the grid step is
+    -- the most common gap between neighbouring positions (not the smallest), and each
+    -- position snaps to the nearest step. Each tree is measured alone.
+    local function Grid(nodes, key, tree)
+        local vals = {}
+        for _, node in ipairs(nodes) do if node.t == tree then vals[#vals + 1] = node[key] end end
+        if #vals == 0 then return function() return 0 end end
+        table.sort(vals)
+        local median = vals[math.ceil(#vals / 2)]
+        local function Fix(v) if median > 0 and v > median * 5 then return v / 10 end return v end
+        local list, seen = {}, {}
+        for _, v in ipairs(vals) do
+            v = Fix(v)
+            if not seen[v] then seen[v] = true; list[#list + 1] = v end
         end
         table.sort(list)
-        local step
+        local count, step, best = {}, nil, 0
         for i = 2, #list do
-            local d = list[i] - list[i - 1]
-            if d > 0 and (not step or d < step) then step = d end
+            local d = math.floor((list[i] - list[i - 1]) / 10 + 0.5) * 10
+            if d >= 100 then
+                count[d] = (count[d] or 0) + 1
+                if count[d] > best or (count[d] == best and d < step) then step, best = d, count[d] end
+            end
         end
-        return step or 1, list[1] or 0
+        step = step or 1
+        -- Neighbouring columns can be several steps apart (a gap in a tree): measure from the smallest
+        local origin = list[1]
+        return function(v) return math.max(0, math.floor((Fix(v) - origin) / step + 0.5)) end
     end
 
     -- Lay one spec out across the view's width and height
@@ -1101,17 +1116,12 @@ local function BuildTalents(view)
         local panelW = n > 0 and math.floor((width - gap * (n - 1)) / n) or 0
         local panelH = height - top
 
-        local grid = {}
-        for i = 1, n do
-            local sx, mx = Step(nodes, "x", i)
-            local sy, my = Step(nodes, "y", i)
-            grid[i] = { sx = sx, mx = mx, sy = sy, my = my }
-        end
+        local colOf, rowOf = {}, {}
+        for i = 1, n do colOf[i], rowOf[i] = Grid(nodes, "x", i), Grid(nodes, "y", i) end
         local cols, rows = {}, 1
         for _, node in ipairs(nodes) do
-            local g = grid[node.t] or { sx = 1, mx = node.x, sy = 1, my = node.y }
-            node.col = math.floor((node.x - g.mx) / g.sx + 0.5)
-            node.row = math.floor((node.y - g.my) / g.sy + 0.5)
+            node.col = colOf[node.t] and colOf[node.t](node.x) or 0
+            node.row = rowOf[node.t] and rowOf[node.t](node.y) or 0
             cols[node.t] = math.max(cols[node.t] or 1, node.col + 1)
             rows = math.max(rows, node.row + 1)
         end

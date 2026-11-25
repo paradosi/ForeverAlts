@@ -208,7 +208,9 @@ account, so its column stays after the weekly reset.
 Vanilla trees: one trait tree per class whose nodes are split into three groups. For each spec group
 (`C_SpecializationInfo.GetCombatConfigIDForSpecGroup`), Forever Alts saves the groups' names, icons and points
 spent (`GetGroupCurrencyInfo`), and every visible node's position, spell, rank and outgoing edges. The view turns the
-game's positions into a grid (the smallest gap between two talents is one cell) and scales it to the window.
+game's positions into a grid and scales it to the window. Forever's talent data has slips in it (a few positions off
+by 10, a few with an extra digit, like 39300 for 3930), so the grid step is the most common gap between neighbouring
+positions, values far above the tree's median lose the extra digit, and every position snaps to the nearest step.
 `C_Traits.GenerateImportString` gives the loadout code.
 
 **Legacy trees.** Forever's Legacy System (`Blizzard_LegacySystem`) is three more trait trees, IDs 1187 Professions,
