@@ -25,6 +25,14 @@ local methods = {
         if k == "OnSizeChanged" then table.insert(SIZED, self) end
     end,
     GetScript = function(self, k) return self.scripts[k] end,
+    -- Like the game: runs after the current handler, and SetScript later replaces both
+    HookScript = function(self, k, fn)
+        local before = self.scripts[k]
+        self.scripts[k] = function(...)
+            if before then before(...) end
+            fn(...)
+        end
+    end,
     Show = function(self) self.shown = true; if self.scripts.OnShow then self.scripts.OnShow(self) end end,
     Hide = function(self) self.shown = false; if self.scripts.OnHide then self.scripts.OnHide(self) end end,
     SetShown = function(self, on) if on then self:Show() else self:Hide() end end,
@@ -634,6 +642,26 @@ spec.unspent = unspent
 check(#told == 1 and told[1]:find("next talent in \"Plan 1\"", 1, true) and told[1]:find("rank 3", 1, true), "order: reminder said once")
 SlashCmdList.FOREVERALTS("plan")
 check(foot():find("next: ", 1, true) ~= nil, "order: footer names the next talent")
+
+-- Every text button glows on hover; LEVEL ORDER keeps its list and gets the glow too;
+-- the talents use the brighter, thicker style
+do
+    local view
+    for _, f in ipairs(allFrames) do if rawget(f, "planActions") then view = f end end
+    local order, new = view.planActions.order, view.planActions.new
+    new.IsMouseOver = function() return false end
+    new.scripts.OnEnter(new)
+    check(new.hoverGlow and new.hoverGlow.on, "buttons: + NEW glows on hover")
+    new.scripts.OnLeave(new)
+    check(not new.hoverGlow.on, "buttons: and stops when the pointer leaves")
+    local shown = false
+    local RealShow = GameTooltip.Show
+    GameTooltip.Show = function() shown = true end
+    order.scripts.OnEnter(order)
+    GameTooltip.Show = RealShow
+    check(shown and order.hoverGlow and order.hoverGlow.on, "buttons: LEVEL ORDER shows its list and glows")
+    check(view.nextGlow and view.nextGlow.thick == 2.25 and view.nextGlow.len > 0.2, "talents: the next talent's glow is the bright, thicker one")
+end
 
 -- The game's talent window: the next planned talent's button gets the glow
 do

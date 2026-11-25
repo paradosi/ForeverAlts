@@ -335,8 +335,8 @@ function ns.GameTalentGlow()
         if id and (not canaccessvalue or canaccessvalue(id)) and id == step.key then target = button; break end
     end
     if not target then return Off() end
-    gameGlow = gameGlow or ns.T.Glow(target, tf)
-    gameGlow.thick = 2
+    -- Brighter and thicker than the window's own, to read against Blizzard's busy art
+    gameGlow = gameGlow or ns.T.Glow(target, tf, nil, { thick = 3, bright = true })
     gameGlow:SetTarget(target)
     gameGlow:SetActive(true)
 end

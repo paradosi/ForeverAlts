@@ -132,6 +132,10 @@ function T.TextButton(parent, label, size)
         if not self.selected then self.text:SetTextColor(C.primary[1], C.primary[2], C.primary[3]) end
     end)
     b:SetScript("OnLeave", function(self) self:SetSelected(self.selected) end)
+    -- wowdb's running glow on hover. Set b.glowInset = { x, y } before the first hover to
+    -- change its box; replacing OnEnter/OnLeave later drops it (HookScript instead)
+    b.hoverGlow = false
+    T.HoverGlow(b, { 2, 2 })
     return b
 end
 
@@ -180,11 +184,15 @@ end
 -- while it shows. glow:SetActive(on); glow:SetTarget(frame) moves it onto another frame.
 local GLOW_LAP, GLOW_FADE, GLOW_SEGS, GLOW_COMETS, GLOW_LEN = 4.4, 0.3, 10, 2, 0.16
 
-function T.Glow(owner, parent, inset)
+-- style (optional): { thick = px, bright = true }. Bright mixes the head toward white, keeps
+-- the tail lit longer and makes the comets longer: the talents use it.
+T.TALENT_GLOW = { thick = 2.25, bright = true }
+
+function T.Glow(owner, parent, inset, style)
     local g = CreateFrame("Frame", nil, parent or owner)
     g:SetFrameLevel(owner:GetFrameLevel() + 6)
     g:SetAllPoints(owner)
-    if inset then  -- { x, y }: the ring sits that far inside the frame
+    if type(inset) == "table" then  -- { x, y }: the ring sits that far inside the frame
         g:ClearAllPoints()
         g:SetPoint("TOPLEFT", owner, "TOPLEFT", inset[1], -inset[2])
         g:SetPoint("BOTTOMRIGHT", owner, "BOTTOMRIGHT", -inset[1], inset[2])
@@ -194,17 +202,21 @@ function T.Glow(owner, parent, inset)
     g.tint:SetColorTexture(1, 1, 1, 0.02)  -- wowdb's #ffffff05 under the cursor
     g.tint:SetAllPoints()
     g.segs = {}
+    local bright = style and style.bright
+    local headColor = bright and { 1, 0.95, 0.82 } or C.accentHi  -- bright: accent-hi most of the way to white
     for i = 1, GLOW_COMETS * GLOW_SEGS do
         local t = g:CreateTexture(nil, "OVERLAY")
         local k = ((i - 1) % GLOW_SEGS) / GLOW_SEGS     -- 0 at the head, near 1 at the tail
-        local r = C.accentHi[1] + (C.accent[1] - C.accentHi[1]) * k
-        local gr = C.accentHi[2] + (C.accent[2] - C.accentHi[2]) * k
-        local b = C.accentHi[3] + (C.accent[3] - C.accentHi[3]) * k
-        t:SetColorTexture(r, gr, b, (1 - k) ^ 1.6)
+        local r = headColor[1] + (C.accent[1] - headColor[1]) * k
+        local gr = headColor[2] + (C.accent[2] - headColor[2]) * k
+        local b = headColor[3] + (C.accent[3] - headColor[3]) * k
+        t:SetColorTexture(r, gr, b, (1 - k) ^ (bright and 1.0 or 1.6))
+        if bright then t:SetBlendMode("ADD") end
         g.segs[i] = t
     end
     g.t, g.alpha, g.on = 0, 0, false
-    g.thick = 1.25
+    g.thick = style and style.thick or 1.25
+    g.len = bright and 0.22 or GLOW_LEN
 
     -- One segment [s, s + len] of the perimeter (clockwise from the top left), clipped to its side
     local function Place(tex, s, len, w, h)
@@ -244,7 +256,7 @@ function T.Glow(owner, parent, inset)
         local w, h = self:GetWidth(), self:GetHeight()
         if not w or w <= 0 or not h or h <= 0 then return end
         local P = 2 * (w + h)
-        local len = P * GLOW_LEN / GLOW_SEGS
+        local len = P * self.len / GLOW_SEGS
         for c = 0, GLOW_COMETS - 1 do
             local head = ((self.t / GLOW_LAP) % 1) * P + c * P / GLOW_COMETS
             for i = 1, GLOW_SEGS do
@@ -267,10 +279,11 @@ end
 
 -- The glow on hover, made the first time the pointer arrives. Call after the frame's own
 -- OnEnter/OnLeave are set: SetScript would replace the hooks. inset as for T.Glow.
-function T.HoverGlow(frame, inset)
+function T.HoverGlow(frame, inset, style)
     frame.keepGlow = frame.keepGlow or false
+    frame.glowInset = (type(frame.glowInset) == "table" and frame.glowInset) or inset or false
     frame:HookScript("OnEnter", function(self)
-        self.hoverGlow = self.hoverGlow or T.Glow(self, nil, inset)
+        self.hoverGlow = self.hoverGlow or T.Glow(self, nil, self.glowInset or nil, style)
         self.hoverGlow:SetActive(true)
     end)
     frame:HookScript("OnLeave", function(self)

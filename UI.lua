@@ -1058,6 +1058,7 @@ local function BuildTalents(view)
         view.planActions[i] = b
         view.planActions[a[1]] = b
     end
+    view.planActions.order.hooked, view.planActions.order.book = false, false
 
     local function Panel(i)
         local p = view.panels[i]
@@ -1130,7 +1131,7 @@ local function BuildTalents(view)
         end)
         b:SetScript("OnLeave", GameTooltip_Hide)
         b.hoverGlow = false
-        T.HoverGlow(b)
+        T.HoverGlow(b, nil, T.TALENT_GLOW)
         p.nodes[i] = b
         return b
     end
@@ -1378,7 +1379,7 @@ local function BuildTalents(view)
                 -- The next talent to learn in the plan stands out in white
                 if plan and self.nextKey and node.s == self.nextKey then
                     col, open = C.primary, false
-                    self.nextGlow = self.nextGlow or T.Glow(b, self)
+                    self.nextGlow = self.nextGlow or T.Glow(b, self, nil, T.TALENT_GLOW)
                     self.nextGlow:SetTarget(b)
                     self.nextGlow:SetActive(true)
                     nextShown = true
@@ -1474,31 +1475,35 @@ local function BuildTalents(view)
                 "Ctrl+C copies the plan · paste it into PASTE on any account · Esc closes")
         end)
         -- The level order on hover: runs of the same talent as one line ("12-14  Improved Fireball 1-3")
-        acts.order:SetScript("OnClick", nil)
-        acts.order:SetScript("OnEnter", function(b)
-            local steps = self.steps or {}
-            GameTooltip:SetOwner(b, "ANCHOR_BOTTOMLEFT")
-            GameTooltip:AddLine("Level order: " .. book.active, 1, 1, 1)
-            if #steps == 0 then
-                GameTooltip:AddLine("Nothing planned yet: click talents to add points, in the order you'll learn them.", 0.588, 0.616, 0.702, true)
-            end
-            local i = 1
-            while i <= #steps do
-                local j = i
-                while steps[j + 1] and steps[j + 1].key == steps[i].key do j = j + 1 end
-                local a, z = steps[i], steps[j]
-                local levels = a.level == z.level and tostring(a.level) or (a.level .. "-" .. z.level)
-                local ranks = a.rank == z.rank and tostring(a.rank) or (a.rank .. "-" .. z.rank)
-                local isNext = false
-                for k = i, j do if self.nextKey == steps[k].key then isNext = true end end
-                local col = isNext and { 0.471, 0.663, 0.937 } or { 0.761, 0.784, 0.855 }
-                GameTooltip:AddDoubleLine(levels, ns.StepName(a) .. " " .. ranks, 0.890, 0.714, 0.392, col[1], col[2], col[3])
-                i = j + 1
-            end
-            GameTooltip:AddLine("Points are learned in the order you added them.", 0.588, 0.616, 0.702, true)
-            GameTooltip:Show()
-        end)
-        acts.order:SetScript("OnLeave", GameTooltip_Hide)
+        acts.order.book = book
+        if not acts.order.hooked then
+            acts.order.hooked = true
+            acts.order:HookScript("OnEnter", function(b)
+                local shown = b.book
+                local steps = self.steps or {}
+                GameTooltip:SetOwner(b, "ANCHOR_BOTTOMLEFT")
+                GameTooltip:AddLine("Level order: " .. shown.active, 1, 1, 1)
+                if #steps == 0 then
+                    GameTooltip:AddLine("Nothing planned yet: click talents to add points, in the order you'll learn them.", 0.588, 0.616, 0.702, true)
+                end
+                local i = 1
+                while i <= #steps do
+                    local j = i
+                    while steps[j + 1] and steps[j + 1].key == steps[i].key do j = j + 1 end
+                    local a, z = steps[i], steps[j]
+                    local levels = a.level == z.level and tostring(a.level) or (a.level .. "-" .. z.level)
+                    local ranks = a.rank == z.rank and tostring(a.rank) or (a.rank .. "-" .. z.rank)
+                    local isNext = false
+                    for k = i, j do if self.nextKey == steps[k].key then isNext = true end end
+                    local col = isNext and { 0.471, 0.663, 0.937 } or { 0.761, 0.784, 0.855 }
+                    GameTooltip:AddDoubleLine(levels, ns.StepName(a) .. " " .. ranks, 0.890, 0.714, 0.392, col[1], col[2], col[3])
+                    i = j + 1
+                end
+                GameTooltip:AddLine("Points are learned in the order you added them.", 0.588, 0.616, 0.702, true)
+                GameTooltip:Show()
+            end)
+            acts.order:HookScript("OnLeave", GameTooltip_Hide)
+        end
         acts.paste:SetScript("OnClick", function()
             Ask("Paste a plan (Ctrl+V), then Enter · Esc cancels", "", function(text)
                 local ok, result = ns.ImportPlan(text)
@@ -1838,6 +1843,8 @@ local function Build()
     close:SetScript("OnEnter", function(self) self.text:SetTextColor(C.primary[1], C.primary[2], C.primary[3]) end)
     close:SetScript("OnLeave", function(self) self.text:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
     close:SetScript("OnClick", function() frame:Hide() end)
+    close.hoverGlow = false
+    T.HoverGlow(close, { 3, 3 })
 
     -- Tabs, with a gold underline on the selected one
     local tabLine = T.Line(frame, C.divider)
@@ -1852,16 +1859,14 @@ local function Build()
         b.underline:SetHeight(2)
         b.underline:SetPoint("BOTTOMLEFT", 8, 0); b.underline:SetPoint("BOTTOMRIGHT", -8, 0)
         b:SetScript("OnClick", function() Select(t.key) end)
-        -- wowdb's running glow on hover, a box around the label clear of the underline
-        b.hoverGlow = false
-        T.HoverGlow(b, { 2, 7 })
+        b.glowInset = { 2, 7 }  -- a box around the label, clear of the underline
         -- The open tab keeps glowing; the others glow only under the pointer
         b.keepGlow = function(self) return self.selected end
         local SetSelected = b.SetSelected
         b.SetSelected = function(self, on)
             SetSelected(self, on)
             if on then
-                self.hoverGlow = self.hoverGlow or T.Glow(self, nil, { 2, 7 })
+                self.hoverGlow = self.hoverGlow or T.Glow(self, nil, self.glowInset)
                 self.hoverGlow:SetActive(true)
             elseif self.hoverGlow and not self:IsMouseOver() then
                 self.hoverGlow:SetActive(false)
