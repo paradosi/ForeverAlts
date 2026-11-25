@@ -1274,6 +1274,11 @@ local function BuildTalents(view)
             self.hint:SetText(c.name .. " has no talents to show yet.")
         end
         self:Draw(spec)
+        -- Opening the window lays it out after this runs, so the first draw can be sized
+        -- for a fallback height: draw again once the real size is known
+        C_Timer.After(0, function()
+            if self:IsShown() and self.spec == spec and spec then self:Draw(spec) end
+        end)
         if not box:IsShown() then
             local foot = {}
             if c and spec and legacy then
