@@ -27,6 +27,9 @@
 - Fixed: talent trees were drawn tiny and squashed, with a stray talent beside or below a tree (Forever's talent
   positions have small slips in them, and a few hidden talents sit far off the tree; the grid now snaps to the
   slips and leaves the hidden ones out).
+- **Talent planner**: PLAN on the Talents tab. Click talents to plan a build with the game's rules (51 points,
+  5 per tier, prerequisites), from the character's current talents or from scratch. Planned points are blue,
+  talents you can take next are outlined, and the tooltip says why one is closed. `/alts plan`.
 - The window is a little wider to fit the new column.
 - Fixed: in a narrow window the footer ran into the version number. It now ends with "…"; hover it for the whole line.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.

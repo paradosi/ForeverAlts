@@ -486,6 +486,42 @@ check(ForeverAltsFrame.footer.text:find("Legacy Professions 1, Adventure 3, Prog
     and ForeverAltsFrame.footer.text:find("4 Legacy points to spend", 1, true) ~= nil, "legacy: tab draws the Legacy trees")
 SlashCmdList.FOREVERALTS("talents")
 check(ForeverAltsFrame.footer.text:find("Fire 0/7/0", 1, true) ~= nil, "legacy: CLASS goes back to the class trees")
+
+-- The planner: click talents on Aelin's trees (Improved Fireball 5/5 -> Ignite 2/3 in Fire,
+-- an Arcane talent at 0/5)
+SlashCmdList.FOREVERALTS("plan")
+local function Talent(spell)
+    for _, f in ipairs(allFrames) do
+        local n = rawget(f, "node")
+        if n and n.s == spell and f.shown then return f end
+    end
+end
+local function Click(spell, button, shift)
+    IsShiftKeyDown = function() return shift or false end
+    local b = Talent(spell)
+    b.scripts.OnClick(b, button or "LeftButton")
+    IsShiftKeyDown = function() return false end
+end
+local foot = function() return ForeverAltsFrame.footer.text end
+check(foot():find("Mage plan   ·   0/7/0", 1, true) and foot():find("7 learned + 0 planned = 7 of 51", 1, true), "plan: starts from the current build")
+Click(3020)
+check(foot():find("0/8/0", 1, true) and foot():find("1 planned", 1, true), "plan: a click adds a point")
+Click(3020)
+check(foot():find("Already at full rank", 1, true) ~= nil, "plan: full rank refused")
+Click(3020, "RightButton"); Click(3020, "RightButton")
+check(foot():find("Already learned", 1, true) ~= nil and foot():find("0/7/0", 1, true), "plan: learned points stay unless from scratch")
+Click(3030, nil, true)
+check(foot():find("5/7/0", 1, true) ~= nil, "plan: shift-click fills every rank")
+-- From scratch, the rules: a tier needs 5 points above it, an arrow needs its source full
+ForeverAltsDB.plans.MAGE = { scratch = true, ranks = {}, order = {} }
+SlashCmdList.FOREVERALTS("plan")
+Click(3020)
+check(foot():find("Needs 5 points in Fire", 1, true) ~= nil, "plan: tier gate")
+Click(3010, nil, true); Click(3020)
+check(foot():find("0/6/0", 1, true) ~= nil, "plan: the tier opens after 5 points")
+Click(3010, "RightButton")
+check(foot():find("Other planned talents need this one", 1, true) ~= nil, "plan: can't pull a point others depend on")
+check(#ForeverAltsDB.plans.MAGE.order == 6 and ForeverAltsDB.plans.MAGE.order[6] == 3020, "plan: points kept in the order they were added")
 SlashCmdList.FOREVERALTS("locks")
 check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
 now = now + 5 * 86400

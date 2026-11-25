@@ -30,6 +30,11 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   build's code for the game's own Import, to copy a build to another character. The Characters tab has a
   TALENTS column (`0/21/30`, with unspent points in orange). **LEGACY** switches the tab to the Legacy System's three
   trees (Professions, Adventure, Progression) with Legacy points to spend and Legacy renown.
+- **Talent planner**: **PLAN** on the Talents tab. Click a talent to add a point, right-click to take one off,
+  Shift for every rank. Vanilla's rules hold (51 points, 5 points per tier, arrows need their source at full rank),
+  and the tooltip says why a talent is closed. Learned points stay gold, planned ones are blue, and talents that can
+  take a point are outlined. *From current* builds on the character's talents; *from scratch* plans a respec.
+  One plan per class, kept between sessions, with the order you added points.
 - **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
   account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
 - **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a
@@ -105,6 +110,7 @@ standings. Click the *ONLY …* chip on either tab to clear it. Right-clicking a
 | `/alts profs <text>` | Open the Professions tab searching recipes for `<text>` |
 | `/alts reps <text>` | Open the Reputation tab searching factions for `<text>` |
 | `/alts talents` | Open the Talents tab (also `/alts spec`) |
+| `/alts plan` | Open the talent planner |
 | `/alts legacy` | Open the Talents tab on the Legacy trees |
 | `/alts locks` | Open the Lockouts tab (also `/alts lockouts`, `/alts raids`) |
 | `/alts options` | Open the options panel |
@@ -213,6 +219,11 @@ by 10), so the grid step is the most common gap between neighbouring
 positions and every position snaps to the nearest step. A few nodes sit ten times further out (102800 among 10280s):
 the game draws those off its canvas, out of sight, so they're left out here too.
 `C_Traits.GenerateImportString` gives the loadout code.
+
+**The planner** keeps one plan per class in `db.plans[class] = { scratch, ranks = { spellID -> rank }, order }`.
+It draws on the active spec's saved trees, so a class can be planned once a character of it has been recorded. The rules
+are checked from the drawn grid: a talent in row *n* (from 0) needs 5·*n* points in rows above it in its tree, an arrow's
+talent needs its source at full rank, and taking a point off is refused if any other planned point would stop holding.
 
 **Legacy trees.** Forever's Legacy System (`Blizzard_LegacySystem`) is three more trait trees, IDs 1187 Professions,
 1188 Adventure and 1189 Progression (`Constants.LegacyConsts`), each with its own config

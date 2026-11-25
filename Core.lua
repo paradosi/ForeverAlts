@@ -187,6 +187,7 @@ ns:On("ADDON_LOADED", function(name)
     db.warband = db.warband or {}   -- the account bank, shared by every character: { items, seen }
     db.factions = db.factions or {} -- factionID -> { name, group, order }
     db.groups  = db.groups or {}    -- reputation header -> its place in the list
+    db.plans   = db.plans or {}     -- class -> talent plan { scratch, ranks, order }
     db.instances = db.instances or {} -- instance name -> { total, raid, players }: lockout columns
     -- Before 2026-11-25 an empty gear slot was saved as item 0 (Forever answers 0, not nil)
     for _, c in pairs(db.chars) do
@@ -223,6 +224,8 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.ShowUI("locks")
     elseif cmd == "talents" or cmd == "talent" or cmd == "spec" then
         ns.ShowTalents(nil, "class")
+    elseif cmd == "plan" or cmd == "planner" then
+        ns.ShowTalents(nil, "plan")
     elseif cmd == "legacy" then
         ns.ShowTalents(nil, "legacy")
     elseif cmd == "options" or cmd == "config" then
@@ -233,6 +236,6 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.Say("window back to its usual size, in the middle.")
     else
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts talents · /alts legacy · /alts options · /alts reset (window size and position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts talents · /alts plan · /alts legacy · /alts options · /alts reset (window size and position)")
     end
 end

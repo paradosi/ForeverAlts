@@ -961,6 +961,7 @@ end
 -- between the class trees and the Legacy System's three trees (Forever's own).
 
 local MAXED, PARTIAL = C.accent, { 0.533, 0.812, 0.490 }
+local PLANNED, OPEN = { 0.471, 0.663, 0.937 }, { 0.890, 0.714, 0.392, 0.45 }
 
 local function BuildTalents(view)
     view.pick, view.group, view.spec, view.mode = false, false, false, "class"
@@ -1003,9 +1004,9 @@ local function BuildTalents(view)
     view.hint:SetPoint("TOPRIGHT", -PAD, -120)
     view.hint:SetWordWrap(true)
 
-    -- CLASS / LEGACY, at the right end of the top row
+    -- CLASS / PLAN / LEGACY, at the right end of the top row
     view.modes = {}
-    for i, m in ipairs({ { "legacy", "LEGACY" }, { "class", "CLASS" } }) do
+    for i, m in ipairs({ { "legacy", "LEGACY" }, { "plan", "PLAN" }, { "class", "CLASS" } }) do
         local b = T.TextButton(view, m[2], 10)
         b:SetScript("OnClick", function() view.mode = m[1]; box:Hide(); view:Refresh() end)
         b:ClearAllPoints()
@@ -1014,10 +1015,20 @@ local function BuildTalents(view)
         view.modes[i] = b
     end
     local sep = T.Text(view, T.mono, 10, C.border)
-    sep:SetPoint("RIGHT", view.modes[2], "LEFT", -2, 0)
+    sep:SetPoint("RIGHT", view.modes[3], "LEFT", -2, 0)
     sep:SetText("|")
     view.copy:ClearAllPoints()
     view.copy:SetPoint("RIGHT", sep, "LEFT", -6, 0)
+    view.sep = sep
+
+    -- Plan controls: start from the character's build or from nothing, and clear
+    view.clearPlan = T.TextButton(view, "CLEAR PLAN", 10)
+    view.clearPlan:SetPoint("RIGHT", sep, "LEFT", -6, 0)
+    view.scratch = T.TextButton(view, "FROM SCRATCH", 10)
+    view.scratch:SetPoint("RIGHT", view.clearPlan, "LEFT", -2, 0)
+    view.fromCurrent = T.TextButton(view, "FROM CURRENT", 10)
+    view.fromCurrent:SetPoint("RIGHT", view.scratch, "LEFT", 0, 0)
+    view.msg = false
 
     local function Panel(i)
         local p = view.panels[i]
@@ -1051,12 +1062,34 @@ local function BuildTalents(view)
         b.rankBg = b:CreateTexture(nil, "ARTWORK", nil, 2)
         T.Fill(b.rankBg, C.deep)
         b.rankBg:SetPoint("TOPLEFT", b.rank, -2, 1); b.rankBg:SetPoint("BOTTOMRIGHT", b.rank, 2, -1)
+        b.index = 0
+        b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        b:SetScript("OnClick", function(self, button)
+            local plan = view.mode == "plan" and view.plan
+            if not plan or not self.node then return end
+            if button == "RightButton" then
+                view.msg = plan:Remove(self.index, IsShiftKeyDown()) or false
+            else
+                view.msg = plan:Add(self.index, IsShiftKeyDown()) or false
+            end
+            view:Refresh()
+            if self:IsMouseOver() then self:GetScript("OnEnter")(self) end
+        end)
         b:SetScript("OnEnter", function(self)
             local n = self.node
             if not n then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             if n.s then GameTooltip:SetSpellByID(n.s) else GameTooltip:AddLine(n.n or "?") end
-            GameTooltip:AddLine("Rank " .. n.r .. " / " .. n.m, 0.890, 0.714, 0.392)
+            local plan = view.mode == "plan" and view.plan
+            if plan then
+                local r, owned = plan:Rank(self.index), plan:Floor(self.index)
+                GameTooltip:AddLine("Planned rank " .. r .. " / " .. n.m .. (owned > 0 and ("  (" .. owned .. " learned)") or ""), 0.471, 0.663, 0.937)
+                local why = r < n.m and plan:WhyNot(self.index)
+                if why then GameTooltip:AddLine(why, 0.953, 0.663, 0.510, true) end
+                GameTooltip:AddLine("Click: add a point · Right-click: take one off · Shift: all ranks", 0.588, 0.616, 0.702, true)
+            else
+                GameTooltip:AddLine("Rank " .. n.r .. " / " .. n.m, 0.890, 0.714, 0.392)
+            end
             GameTooltip:Show()
         end)
         b:SetScript("OnLeave", GameTooltip_Hide)
@@ -1108,8 +1141,124 @@ local function BuildTalents(view)
         end
     end
 
-    -- Lay one spec out across the view's width and height
-    function view:Draw(spec)
+    ---- The planner. A plan is per class, in ns.db.plans[class] = { scratch, ranks =
+    ---- { spellID -> rank }, order = { spellID, … } (each point in the order it was added) }.
+    ---- From current, the character's learned ranks are the floor; from scratch they're ignored.
+    ---- The rules are Vanilla's: 51 points at level 60, a tier opens with 5 points per row
+    ---- above it in that tree, and an arrow's talent needs the one it comes from at full rank.
+
+    local PLAN_POINTS = 51
+
+    local function NodeKey(node) return node.s or (node.x .. ":" .. node.y) end
+    local function NodeName(node)
+        return (node.s and C_Spell.GetSpellName(node.s)) or node.n or "that talent"
+    end
+
+    local function NewPlan(spec, saved, trees)
+        local nodes = spec.nodes
+        local need = {}  -- node index -> the indexes whose arrows lead into it
+        for i, node in ipairs(nodes) do
+            for _, target in ipairs(node.e or {}) do
+                need[target] = need[target] or {}
+                table.insert(need[target], i)
+            end
+        end
+        local plan = { saved = saved, nodes = nodes }
+
+        function plan:Floor(i) return saved.scratch and 0 or (nodes[i].r or 0) end
+        function plan:Rank(i, over)
+            if over and over[i] then return over[i] end
+            return math.max(saved.ranks[NodeKey(nodes[i])] or 0, self:Floor(i))
+        end
+        local function Counts(over)
+            local total, below = 0, {}
+            for i, node in ipairs(nodes) do
+                if not node.hidden then
+                    local r = plan:Rank(i, over)
+                    total = total + r
+                    below[node.t] = below[node.t] or {}
+                    below[node.t][node.row] = (below[node.t][node.row] or 0) + r
+                end
+            end
+            return total, below
+        end
+        local function Below(below, t, row)
+            local sum = 0
+            for r2, n in pairs(below[t] or {}) do if r2 < row then sum = sum + n end end
+            return sum
+        end
+        -- Why node i can't take another point (nil when it can)
+        function plan:WhyNot(i, over)
+            local node = nodes[i]
+            local r = self:Rank(i, over)
+            if r >= node.m then return "Already at full rank." end
+            local total, below = Counts(over)
+            if total >= PLAN_POINTS then return "No points left: " .. PLAN_POINTS .. " at level 60." end
+            local want = node.row * 5
+            if Below(below, node.t, node.row) < want then
+                return "Needs " .. want .. " points in " .. ((trees[node.t] or {}).name or "this tree") .. "."
+            end
+            for _, from in ipairs(need[i] or {}) do
+                if self:Rank(from, over) < nodes[from].m then
+                    return "Needs " .. NodeName(nodes[from]) .. " at " .. nodes[from].m .. "/" .. nodes[from].m .. "."
+                end
+            end
+        end
+        -- Whether every point in the plan still stands (after a point is taken off)
+        local function Holds(over)
+            local _, below = Counts(over)
+            for i, node in ipairs(nodes) do
+                if not node.hidden and plan:Rank(i, over) > 0 then
+                    if Below(below, node.t, node.row) < node.row * 5 then return false end
+                    for _, from in ipairs(need[i] or {}) do
+                        if plan:Rank(from, over) < nodes[from].m then return false end
+                    end
+                end
+            end
+            return true
+        end
+        function plan:Add(i, all)
+            local why = self:WhyNot(i)
+            if why then return why end
+            local key = NodeKey(nodes[i])
+            repeat
+                saved.ranks[key] = self:Rank(i) + 1
+                table.insert(saved.order, key)
+            until not all or self:WhyNot(i)
+        end
+        function plan:Remove(i, all)
+            local key = NodeKey(nodes[i])
+            if self:Rank(i) <= self:Floor(i) then
+                return self:Floor(i) > 0 and "Already learned: start the plan from scratch to change it." or nil
+            end
+            repeat
+                local r = self:Rank(i) - 1
+                if not Holds({ [i] = r }) then
+                    return "Other planned talents need this one: take those off first."
+                end
+                saved.ranks[key] = r > 0 and r or nil
+                for k = #saved.order, 1, -1 do
+                    if saved.order[k] == key then table.remove(saved.order, k); break end
+                end
+            until not all or self:Rank(i) <= self:Floor(i)
+        end
+        function plan:Totals()
+            local total, learned, per = 0, 0, {}
+            for i, node in ipairs(nodes) do
+                if not node.hidden then
+                    local r = self:Rank(i)
+                    total = total + r
+                    learned = learned + math.min(r, self:Floor(i))
+                    per[node.t] = (per[node.t] or 0) + r
+                end
+            end
+            return total, learned, per
+        end
+        return plan
+    end
+
+    -- Lay one spec out across the view's width and height (a plan, if given, sets the ranks)
+    function view:Draw(spec, plan)
         local top, gap, gridTop = 34, 10, 36
         local width, height = self:GetWidth(), self:GetHeight()
         if not width or width <= 0 then width = W - PAD * 2 end
@@ -1152,6 +1301,14 @@ local function BuildTalents(view)
                 if tree.atlas then p.icon:SetAtlas(tree.atlas) else p.icon:SetTexture(tree.icon) end
                 p.name:SetText(tree.name)
                 p.spent:SetText(tostring(tree.spent or 0))
+                p.spent:SetTextColor(C.accent[1], C.accent[2], C.accent[3])
+                if plan then
+                    local _, _, per = plan:Totals()
+                    local planned = per[i] or 0
+                    p.spent:SetText(tostring(planned))
+                    local c = planned ~= (tree.spent or 0) and PLANNED or C.accent
+                    p.spent:SetTextColor(c[1], c[2], c[3])
+                end
                 p.left = math.floor((panelW - (cols[i] or maxCols) * cell) / 2)
                 p:Show()
             else
@@ -1166,17 +1323,22 @@ local function BuildTalents(view)
                 p.used = p.used + 1
                 local b = Node(p, p.used)
                 b.node = node
+                b.index = idx
                 b:SetSize(size, size)
                 b:ClearAllPoints()
                 b:SetPoint("CENTER", p, "TOPLEFT", p.left + (node.col + 0.5) * cell, -(gridY + (node.row + 0.5) * cell))
                 b.rank:SetFont(T.mono, rankSize, "")
                 b.icon:SetTexture(node.i)
-                local on = node.r > 0
+                local r = plan and plan:Rank(idx) or node.r
+                local on = r > 0
+                local col = (r >= node.m and MAXED) or (on and PARTIAL) or C.border
+                -- Planned points beyond what's learned are blue; a talent that can take a point is outlined
+                local open = plan and not on and not plan:WhyNot(idx)
+                if plan and r > plan:Floor(idx) then col = PLANNED end
                 b.icon:SetDesaturated(not on)
-                b.icon:SetAlpha(on and 1 or 0.45)
-                local col = (node.r >= node.m and MAXED) or (on and PARTIAL) or C.border
-                T.Fill(b.edge, col)
-                b.rank:SetText(node.r .. "/" .. node.m)
+                b.icon:SetAlpha(on and 1 or (open and 0.8 or 0.45))
+                T.Fill(b.edge, open and OPEN or col)
+                b.rank:SetText(r .. "/" .. node.m)
                 local rc = on and col or C.muted
                 b.rank:SetTextColor(rc[1], rc[2], rc[3])
                 b:Show()
@@ -1194,7 +1356,8 @@ local function BuildTalents(view)
                     local l = Arrow(p, p.lineCount)
                     l:SetStartPoint("CENTER", from)
                     l:SetEndPoint("CENTER", to)
-                    local c = nodes[target].r > 0 and MAXED or C.border
+                    local lit = (plan and plan:Rank(target) or nodes[target].r) > 0
+                    local c = lit and (plan and plan:Rank(target) > plan:Floor(target) and PLANNED or MAXED) or C.border
                     l:SetColorTexture(c[1], c[2], c[3], 0.9)
                     l:Show()
                 end
@@ -1208,9 +1371,10 @@ local function BuildTalents(view)
     view:SetScript("OnSizeChanged", function(self) if self.spec then self:Draw(self.spec) end end)
 
     function view:Refresh()
-        local legacy = self.mode == "legacy"
+        local legacy, planning = self.mode == "legacy", self.mode == "plan"
         local function Has(c) if legacy then return c.legacy ~= nil end return c.talents ~= nil end
-        self.modes.class:SetSelected(not legacy)
+        self.modes.class:SetSelected(self.mode == "class")
+        self.modes.plan:SetSelected(planning)
         self.modes.legacy:SetSelected(legacy)
 
         local chars, recorded = {}, 0
@@ -1248,7 +1412,8 @@ local function BuildTalents(view)
         for i = #chars + 1, #self.picks do self.picks[i]:Hide() end
 
         local t = c and not legacy and c.talents
-        local group = (self.group and t and t.specs[self.group]) and self.group or (t and t.active) or 1
+        -- A plan is drawn on the active spec's trees
+        local group = (not planning and self.group and t and t.specs[self.group]) and self.group or (t and t.active) or 1
         local spec
         if legacy then spec = c and c.legacy or false else spec = t and t.specs[group] or false end
         self.spec = spec
@@ -1262,10 +1427,10 @@ local function BuildTalents(view)
                 b:SetScript("OnClick", function() self.group = g; box:Hide(); self:Refresh() end)
                 self.specButtons[g] = b
             end
-            b:SetShown(dual)
+            b:SetShown(dual and not planning)
             b:SetSelected(g == group)
         end
-        box.code = (not legacy and spec and spec.code) or false
+        box.code = (not legacy and not planning and spec and spec.code) or false
         self.copy:SetShown(box.code and true or false)
         self.specButtons[2]:ClearAllPoints()
         self.specButtons[2]:SetPoint("RIGHT", box.code and self.copy or self.modes[2], "LEFT", -12, 0)
@@ -1281,15 +1446,47 @@ local function BuildTalents(view)
         elseif not spec then
             self.hint:SetText(c.name .. " has no talents to show yet.")
         end
-        self:Draw(spec)
+        -- The plan for this character's class (one per class, kept across sessions)
+        local plan = false
+        if planning and spec and c.class then
+            local plans = ns.db.plans
+            plans[c.class] = plans[c.class] or { scratch = false, ranks = {}, order = {} }
+            plan = NewPlan(spec, plans[c.class], spec.trees)
+        end
+        self.plan = plan
+        for _, b in ipairs({ self.clearPlan, self.scratch, self.fromCurrent }) do b:SetShown(plan and true or false) end
+        if plan then
+            self.scratch:SetSelected(plan.saved.scratch)
+            self.fromCurrent:SetSelected(not plan.saved.scratch)
+            local saved = plan.saved
+            self.scratch:SetScript("OnClick", function() saved.scratch = true; self.msg = false; self:Refresh() end)
+            self.fromCurrent:SetScript("OnClick", function() saved.scratch = false; self.msg = false; self:Refresh() end)
+            self.clearPlan:SetScript("OnClick", function()
+                saved.ranks, saved.order = {}, {}
+                self.msg = false
+                self:Refresh()
+            end)
+        end
+
+        self:Draw(spec, plan)
         -- Opening the window lays it out after this runs, so the first draw can be sized
         -- for a fallback height: draw again once the real size is known
         C_Timer.After(0, function()
-            if self:IsShown() and self.spec == spec and spec then self:Draw(spec) end
+            if self:IsShown() and self.spec == spec and spec then self:Draw(spec, self.plan) end
         end)
         if not box:IsShown() then
             local foot = {}
-            if c and spec and legacy then
+            if self.msg then foot[#foot + 1] = "|cfff3a982" .. self.msg .. "|r" end
+            if c and spec and plan then
+                local total, learned, per = plan:Totals()
+                local points = {}
+                for i = 1, #spec.trees do points[i] = per[i] or 0 end
+                local class = LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class
+                foot[#foot + 1] = class .. " plan   ·   " .. table.concat(points, "/")
+                foot[#foot + 1] = (plan.saved.scratch and "" or (learned .. " learned + ")) .. (total - learned) .. " planned = "
+                    .. total .. " of " .. PLAN_POINTS
+                if total > 0 then foot[#foot + 1] = "level " .. (total + 9) end
+            elseif c and spec and legacy then
                 local parts = {}
                 for _, tree in ipairs(spec.trees) do parts[#parts + 1] = tree.name .. " " .. (tree.spent or 0) end
                 foot[#foot + 1] = c.name .. "   ·   Legacy " .. table.concat(parts, ", ")
@@ -1304,7 +1501,7 @@ local function BuildTalents(view)
                 foot[#foot + 1] = "recorded " .. ns.Ago(t.seen)
             end
             local missing = #ns:Characters() - recorded
-            if missing > 0 then
+            if missing > 0 and not planning then
                 foot[#foot + 1] = missing .. (legacy and " without Legacy trees recorded" or " not recorded yet: log in on them")
             end
             SetFooter(table.concat(foot, "   ·   "))
