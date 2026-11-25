@@ -489,6 +489,30 @@ check(ForeverAltsFrame.footer.text:find("Fire 0/7/0", 1, true) ~= nil, "legacy: 
 
 -- The planner: click talents on Aelin's trees (Improved Fireball 5/5 -> Ignite 2/3 in Fire,
 -- an Arcane talent at 0/5)
+-- The character dropdown lists everyone with talents and switches the trees
+do
+    -- A second character with talents, so there is someone to switch to
+    local borin = ForeverAltsDB.chars["Dreamscythe|Borin Stonefist"]
+    borin.talents = ns.me.talents
+    SlashCmdList.FOREVERALTS("talents")
+    local radios = {}
+    local root = { CreateTitle = function() end,
+        CreateRadio = function(_, text, isOn, pick) radios[#radios + 1] = { text = text, isOn = isOn, pick = pick } end }
+    local Real = MenuUtil.CreateContextMenu
+    MenuUtil.CreateContextMenu = function(owner, gen) gen(owner, root) end
+    local talentsView
+    for _, f in ipairs(allFrames) do if rawget(f, "charDrop") then talentsView = f end end
+    local drop = talentsView.charDrop
+    drop.scripts.OnClick(drop)
+    MenuUtil.CreateContextMenu = Real
+    check(#radios >= 2, "dropdown: lists the characters with talents (" .. #radios .. ")")
+    local other
+    for _, r in ipairs(radios) do if not r.isOn() then other = r end end
+    other.pick()
+    check(other.isOn() and drop.label.text:find(other.text:match("|c%x%x%x%x%x%x%x%x(.-)|r"), 1, true) ~= nil, "dropdown: picking a character shows them")
+    borin.talents = nil
+    talentsView.pick = false
+end
 C_Spell.GetSpellName = C_Spell.GetSpellName or function(id) return "Spell " .. id end
 SlashCmdList.FOREVERALTS("plan")
 local function Talent(spell)

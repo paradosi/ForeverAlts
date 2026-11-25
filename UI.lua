@@ -965,7 +965,7 @@ local PLANNED, OPEN = { 0.471, 0.663, 0.937 }, { 0.890, 0.714, 0.392, 0.45 }
 
 local function BuildTalents(view)
     view.pick, view.group, view.spec, view.mode = false, false, false, "class"
-    view.picks, view.specButtons, view.panels = {}, {}, {}
+    view.charDrop, view.specButtons, view.panels = false, {}, {}
 
     -- Copy the loadout code: a field with the code selected, ready for Ctrl+C
     view.copy = T.TextButton(view, "COPY LOADOUT CODE", 10)
@@ -1530,24 +1530,48 @@ local function BuildTalents(view)
             self.group = false
         end
 
-        -- The character picker
-        local prev
-        for i, ch in ipairs(chars) do
-            local b = self.picks[i]
-            if not b then
-                b = T.TextButton(self, "", 11)
-                self.picks[i] = b
-            end
-            b.text:SetText(ch.name:upper())
-            b:SetWidth(math.max(b.text:GetStringWidth(), #ch.name * 6.8) + 20)
-            b:ClearAllPoints()
-            if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", -8, 0) end
-            b:SetSelected(ch == c)
-            b:SetScript("OnClick", function() self.pick, self.group = ch.key, false; box:Hide(); self:Refresh() end)
-            b:Show()
-            prev = b
+        -- The character picker: a dropdown showing who's drawn, listing everyone recorded
+        local drop = self.charDrop
+        if not drop then
+            drop = CreateFrame("Button", nil, self)
+            drop:SetSize(260, 24)
+            drop:SetPoint("TOPLEFT", 0, 0)
+            local bg = drop:CreateTexture(nil, "BACKGROUND"); T.Fill(bg, C.raised); bg:SetAllPoints()
+            T.Border(drop, C.border)
+            drop.label = T.Text(drop, T.monoMedium, 11, C.primary)
+            drop.label:SetPoint("LEFT", 10, 0)
+            drop.label:SetPoint("RIGHT", -24, 0)
+            drop.arrow = T.Text(drop, T.mono, 11, C.muted, "RIGHT")
+            drop.arrow:SetPoint("RIGHT", -9, 0)
+            drop.arrow:SetText("▾")
+            drop:SetScript("OnEnter", function(b) b.arrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end)
+            drop:SetScript("OnLeave", function(b) b.arrow:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
+            drop.chars = {}
+            drop:SetScript("OnClick", function(b)
+                MenuUtil.CreateContextMenu(b, function(_, root)
+                    root:CreateTitle("Character")
+                    for _, ch in ipairs(b.chars) do
+                        local class = LOCALIZED_CLASS_NAMES_MALE[ch.class] or ch.class or ""
+                        local text = ns.ColorName(ch) .. "  |cff969db3" .. (ch.level or "?") .. " " .. class
+                            .. (ch == ns.me and "  · you" or "") .. "|r"
+                        root:CreateRadio(text, function() return self.pick == ch.key end, function()
+                            self.pick, self.group = ch.key, false
+                            box:Hide()
+                            self:Refresh()
+                        end)
+                    end
+                end)
+            end)
+            self.charDrop = drop
         end
-        for i = #chars + 1, #self.picks do self.picks[i]:Hide() end
+        drop.chars = chars
+        drop:SetShown(c and true or false)
+        if c then
+            local class = LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class or ""
+            drop.label:SetText(ns.ColorName(c) .. "  |cff969db3" .. (c.level or "?") .. " " .. class .. "|r")
+            local w = drop.label:GetStringWidth()
+            drop:SetWidth(math.max(200, math.min(320, (w and w > 0 and w or 180) + 44)))
+        end
 
         local t = c and not legacy and c.talents
         -- A plan is drawn on the active spec's trees
