@@ -1,0 +1,16 @@
+package-as: ForeverAlts
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+# media/fonts ships, licence files included: the OFL requires them alongside the fonts
+ignore:
+  - README.md
+  - CHANGELOG.md
+  - LICENSE
+  - .github
+  - .gitignore
+  - tests
+  - media/art
+  - media/screenshots

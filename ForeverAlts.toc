@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: Forever Alts
+## Notes: Every character at a glance: gold, levels, played time, rested XP, bags, bank, gear and professions, with item counts on tooltips. /alts
+## Author: paradosi-Dreamscythe
+## Version: 0.1.0
+## Category-enUS: Inventory
+## IconTexture: Interface\AddOns\ForeverAlts\media\textures\logo_64
+## SavedVariables: ForeverAltsDB
+## AddonCompartmentFunc: ForeverAlts_OnCompartmentClick
+
+Core.lua
+Scan.lua
+Tooltip.lua
+Theme.lua
+List.lua
+UI.lua
+Options.lua
