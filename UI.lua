@@ -1052,7 +1052,7 @@ local function BuildTalents(view)
     -- The plan bar, under the top row in PLAN mode: the class's plans, then what to do with them
     view.planTabs = {}
     view.planActions = {}
-    for i, a in ipairs({ { "paste", "PASTE" }, { "copy", "COPY" }, { "delete", "DELETE" }, { "rename", "RENAME" }, { "new", "+ NEW" } }) do
+    for i, a in ipairs({ { "order", "LEVEL ORDER" }, { "paste", "PASTE" }, { "copy", "COPY" }, { "delete", "DELETE" }, { "rename", "RENAME" }, { "new", "+ NEW" } }) do
         local b = T.TextButton(view, a[2], 10)
         if i == 1 then b:SetPoint("TOPRIGHT", 0, -30) else b:SetPoint("RIGHT", view.planActions[i - 1], "LEFT", 0, 0) end
         view.planActions[i] = b
@@ -1113,6 +1113,13 @@ local function BuildTalents(view)
             if plan then
                 local r, owned = plan:Rank(self.index), plan:Floor(self.index)
                 GameTooltip:AddLine("Planned rank " .. r .. " / " .. n.m .. (owned > 0 and ("  (" .. owned .. " learned)") or ""), 0.471, 0.663, 0.937)
+                local levels = {}
+                for _, step in ipairs(view.steps or {}) do
+                    if step.key == n.s then levels[#levels + 1] = step.level end
+                end
+                if #levels > 0 then
+                    GameTooltip:AddLine("Planned at level" .. (#levels > 1 and "s " or " ") .. table.concat(levels, ", "), 0.471, 0.663, 0.937, true)
+                end
                 local why = r < n.m and plan:WhyNot(self.index)
                 if why then GameTooltip:AddLine(why, 0.953, 0.663, 0.510, true) end
                 GameTooltip:AddLine("Click: add a point · Right-click: take one off · Shift: all ranks", 0.588, 0.616, 0.702, true)
@@ -1366,6 +1373,8 @@ local function BuildTalents(view)
                 if plan and r > plan:Floor(idx) then col = PLANNED end
                 b.icon:SetDesaturated(not on)
                 b.icon:SetAlpha(on and 1 or (open and 0.8 or 0.45))
+                -- The next talent to learn in the plan stands out in white
+                if plan and self.nextKey and node.s == self.nextKey then col, open = C.primary, false end
                 T.Fill(b.edge, open and OPEN or col)
                 b.rank:SetText(r .. "/" .. node.m)
                 local rc = on and col or C.muted
@@ -1422,7 +1431,7 @@ local function BuildTalents(view)
         end
         for i = #names + 1, #self.planTabs do self.planTabs[i]:Hide() end
         local acts = self.planActions
-        for i = 1, 5 do acts[i]:SetShown(book ~= nil) end
+        for i = 1, #acts do acts[i]:SetShown(book ~= nil) end
         if not book then return end
         local class = c.class
         local function Ask(prompt, initial, fn) self:Ask(initial, prompt, function(text) fn(text); self:Refresh() end) end
@@ -1455,6 +1464,32 @@ local function BuildTalents(view)
             self:ShowText(ns.ExportPlan(class, book.list[book.active]),
                 "Ctrl+C copies the plan · paste it into PASTE on any account · Esc closes")
         end)
+        -- The level order on hover: runs of the same talent as one line ("12-14  Improved Fireball 1-3")
+        acts.order:SetScript("OnClick", nil)
+        acts.order:SetScript("OnEnter", function(b)
+            local steps = self.steps or {}
+            GameTooltip:SetOwner(b, "ANCHOR_BOTTOMLEFT")
+            GameTooltip:AddLine("Level order: " .. book.active, 1, 1, 1)
+            if #steps == 0 then
+                GameTooltip:AddLine("Nothing planned yet: click talents to add points, in the order you'll learn them.", 0.588, 0.616, 0.702, true)
+            end
+            local i = 1
+            while i <= #steps do
+                local j = i
+                while steps[j + 1] and steps[j + 1].key == steps[i].key do j = j + 1 end
+                local a, z = steps[i], steps[j]
+                local levels = a.level == z.level and tostring(a.level) or (a.level .. "-" .. z.level)
+                local ranks = a.rank == z.rank and tostring(a.rank) or (a.rank .. "-" .. z.rank)
+                local isNext = false
+                for k = i, j do if self.nextKey == steps[k].key then isNext = true end end
+                local col = isNext and { 0.471, 0.663, 0.937 } or { 0.761, 0.784, 0.855 }
+                GameTooltip:AddDoubleLine(levels, ns.StepName(a) .. " " .. ranks, 0.890, 0.714, 0.392, col[1], col[2], col[3])
+                i = j + 1
+            end
+            GameTooltip:AddLine("Points are learned in the order you added them.", 0.588, 0.616, 0.702, true)
+            GameTooltip:Show()
+        end)
+        acts.order:SetScript("OnLeave", GameTooltip_Hide)
         acts.paste:SetScript("OnClick", function()
             Ask("Paste a plan (Ctrl+V), then Enter · Esc cancels", "", function(text)
                 local ok, result = ns.ImportPlan(text)
@@ -1556,6 +1591,9 @@ local function BuildTalents(view)
             plan = NewPlan(spec, book.list[book.active], spec.trees)
         end
         self.plan = plan
+        self.steps = plan and ns.PlanSteps(plan.saved, spec) or false
+        local nextStep = plan and ns.NextStep(plan.saved, spec)
+        self.nextKey = nextStep and nextStep.key or false
         for _, b in ipairs({ self.clearPlan, self.scratch, self.fromCurrent }) do b:SetShown(plan and true or false) end
         self:PlanBar(book, c)
         if box:IsShown() then
@@ -1594,6 +1632,8 @@ local function BuildTalents(view)
                 foot[#foot + 1] = (plan.saved.scratch and "" or (learned .. " learned + ")) .. (total - learned) .. " planned = "
                     .. total .. " of " .. PLAN_POINTS
                 if total > 0 then foot[#foot + 1] = "level " .. (total + 9) end
+                local nextStep = ns.NextStep(plan.saved, spec)
+                if nextStep then foot[#foot + 1] = "next: " .. ns.StepName(nextStep) .. " " .. nextStep.rank end
             elseif c and spec and legacy then
                 local parts = {}
                 for _, tree in ipairs(spec.trees) do parts[#parts + 1] = tree.name .. " " .. (tree.spent or 0) end

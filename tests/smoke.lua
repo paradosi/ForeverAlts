@@ -489,6 +489,7 @@ check(ForeverAltsFrame.footer.text:find("Fire 0/7/0", 1, true) ~= nil, "legacy: 
 
 -- The planner: click talents on Aelin's trees (Improved Fireball 5/5 -> Ignite 2/3 in Fire,
 -- an Arcane talent at 0/5)
+C_Spell.GetSpellName = C_Spell.GetSpellName or function(id) return "Spell " .. id end
 SlashCmdList.FOREVERALTS("plan")
 local function Talent(spell)
     for _, f in ipairs(allFrames) do
@@ -542,6 +543,28 @@ ns.DeletePlan(book, "Fire raid")
 check(book.active == "Plan 1" and not book.list["Fire raid"], "plans: deleted, back to the other")
 ns.DeletePlan(book, "Plan 1")
 check(book.active == "Plan 1" and next(book.list["Plan 1"].ranks) == nil, "plans: deleting the last leaves an empty one")
+
+-- Level order: Aelin has 7 points learned (3010 at 5, 3020 at 2); the plan adds a third 3020, then two 3030
+local spec = ns.ActiveSpec(ns.me)
+local lp = { scratch = false, ranks = { [3020] = 3, [3030] = 2 }, order = { 3020, 3030, 3030 } }
+local steps = ns.PlanSteps(lp, spec)
+check(#steps == 3 and steps[1].level == 17 and steps[1].rank == 3 and steps[3].level == 19 and steps[3].rank == 2,
+    "order: from current, planned points follow the learned ones")
+check(ns.NextStep(lp, spec).key == 3020, "order: next step is the first not yet learned")
+local sp = { scratch = true, ranks = { [3010] = 2 }, order = { 3010, 3010 } }
+check(ns.PlanSteps(sp, spec)[1].level == 10, "order: from scratch starts at level 10")
+-- The reminder names the next talent once, when there are points to spend
+book.list["Plan 1"] = lp
+local unspent = spec.unspent
+spec.unspent = 2
+local told, RealSay = {}, ns.Say
+ns.Say = function(msg) told[#told + 1] = msg end
+ns.RemindPlan(); ns.RemindPlan()
+ns.Say = RealSay
+spec.unspent = unspent
+check(#told == 1 and told[1]:find("next talent in \"Plan 1\"", 1, true) and told[1]:find("rank 3", 1, true), "order: reminder said once")
+SlashCmdList.FOREVERALTS("plan")
+check(foot():find("next: ", 1, true) ~= nil, "order: footer names the next talent")
 SlashCmdList.FOREVERALTS("locks")
 check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
 now = now + 5 * 86400

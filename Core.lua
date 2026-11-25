@@ -13,6 +13,7 @@ ns.defaults = {
     sameFaction  = false,  -- tooltips count only characters of your faction
     sameRuleset  = false,  -- tooltips count only characters on your ruleset
     mailWarn     = true,   -- at login, name characters whose mail is about to expire
+    planRemind   = true,   -- with talent points to spend, name the next one in the class's plan
     sortKey      = "level",
     sortDesc     = true,
 }

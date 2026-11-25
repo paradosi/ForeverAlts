@@ -46,6 +46,10 @@ local function Create()
     Checkbox("mailWarn", "Warn about mail about to expire",
         "At login, a chat line names any character with items or gold in the mail that runs out within 3 days.")
 
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Talents"))
+    Checkbox("planRemind", "Remind me of my talent plan",
+        "When you have talent points to spend, a chat line names the next talent in your class's chosen plan (/alts plan).")
+
     Settings.RegisterAddOnCategory(category)
 end
 

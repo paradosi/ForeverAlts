@@ -137,6 +137,7 @@ local function ScanTalents()
     -- Nothing readable (talents not loaded yet): keep what was recorded
     if next(specs) then me.talents = { active = active, specs = specs, seen = time() } end
     if ns.RefreshUI then ns.RefreshUI() end
+    if ns.RemindPlan then ns.RemindPlan() end
 end
 
 local function Soon() ns:Debounce("talents", 1, ScanTalents) end
@@ -249,4 +250,64 @@ function ns.ImportPlan(text)
     end
     for k in order:gmatch("[^%.]+") do plan.order[#plan.order + 1] = tonumber(k) or k end
     return true, { class = class, plan = plan }
+end
+
+---- Level order. A plan's order lists each point as it was added, so it is also the order to
+---- learn them in. Planned from current, the plan's points come after the ones already learned;
+---- from scratch, after a respec. Talent points come one per level from level 10.
+
+local FIRST_TALENT_LEVEL = 10
+
+local function Learned(spec)
+    local ranks, total = {}, 0
+    for _, node in ipairs(spec and spec.nodes or {}) do
+        if node.s and (node.r or 0) > 0 then
+            ranks[node.s] = node.r
+            total = total + node.r
+        end
+    end
+    return ranks, total
+end
+
+-- { { key, rank, level } } for every point in the plan's order; spec gives the learned ranks
+function ns.PlanSteps(plan, spec)
+    local learned, total = Learned(spec)
+    local base = plan.scratch and 0 or total
+    local steps, rank = {}, {}
+    for _, key in ipairs(plan.order) do
+        rank[key] = (rank[key] or (plan.scratch and 0 or (learned[key] or 0))) + 1
+        steps[#steps + 1] = { key = key, rank = rank[key], level = FIRST_TALENT_LEVEL + base + #steps }
+    end
+    return steps
+end
+
+-- The first planned point this character hasn't learned, or nil
+function ns.NextStep(plan, spec)
+    local learned = Learned(spec)
+    for _, step in ipairs(ns.PlanSteps(plan, spec)) do
+        if (learned[step.key] or 0) < step.rank then return step end
+    end
+end
+
+function ns.StepName(step)
+    return (type(step.key) == "number" and C_Spell.GetSpellName(step.key)) or tostring(step.key)
+end
+
+-- When the character has points to spend, name the next talent of its class's active plan.
+-- Said once per talent, so spending points elsewhere or a rescan doesn't repeat it.
+local reminded
+function ns.RemindPlan()
+    local me = ns.me
+    local spec = me and ns.ActiveSpec(me)
+    local book = me and me.class and ns.db.plans[me.class]
+    if not (ns.settings.planRemind and spec and (spec.unspent or 0) > 0 and book and book.list) then return end
+    local plan = book.list[book.active]
+    local step = plan and ns.NextStep(plan, spec)
+    if not step then return end
+    local id = book.active .. "|" .. tostring(step.key) .. "|" .. step.rank
+    if id == reminded then return end
+    reminded = id
+    local link = type(step.key) == "number" and C_Spell.GetSpellLink and C_Spell.GetSpellLink(step.key)
+    ns.Say("next talent in \"" .. book.active .. "\": " .. (link or ns.StepName(step)) .. " rank " .. step.rank
+        .. " (" .. spec.unspent .. " point" .. (spec.unspent == 1 and "" or "s") .. " to spend).")
 end
