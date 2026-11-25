@@ -2,12 +2,13 @@
 
 local _, ns = ...
 
--- Every place one character holds an item: bags, bank, worn
+-- Every place one character holds an item: bags, bank, worn, mail
 function ns.Holdings(c, itemID)
     local bags = c.bags and c.bags[itemID] or 0
     local bank = c.bank and c.bank[itemID] or 0
     local worn = c.equipped and c.equipped[itemID] or 0
-    return bags + bank + worn, bags, bank, worn
+    local mail = c.mail and c.mail.items and c.mail.items[itemID] or 0
+    return bags + bank + worn + mail, bags, bank, worn, mail
 end
 
 function ns.WarbandCount(itemID)
@@ -36,11 +37,12 @@ end
 local GREY, GOLD = { 0.588, 0.616, 0.702 }, { 0.890, 0.714, 0.392 }
 
 -- "bags" when it's all in one place; "bags 10, bank 2" when it's split
-local function Where(bags, bank, worn)
+local function Where(bags, bank, worn, mail)
     local parts = {}
     if bags > 0 then table.insert(parts, { "bags", bags }) end
     if bank > 0 then table.insert(parts, { "bank", bank }) end
     if worn > 0 then table.insert(parts, { "worn", worn }) end
+    if mail > 0 then table.insert(parts, { "mail", mail }) end
     if #parts == 1 then return parts[1][1] end
     for i, p in ipairs(parts) do parts[i] = p[1] .. " " .. p[2] end
     return table.concat(parts, ", ")
@@ -52,9 +54,9 @@ local function AddCounts(tooltip, itemID)
     local rows, total = {}, 0
     for key, c in pairs(ns.db.chars) do
         if (s.allRealms or c.realm == realm) and (s.tooltipSelf or key ~= ns.meKey) then
-            local n, bags, bank, worn = ns.Holdings(c, itemID)
+            local n, bags, bank, worn, mail = ns.Holdings(c, itemID)
             if n > 0 then
-                table.insert(rows, { c = c, n = n, where = Where(bags, bank, worn) })
+                table.insert(rows, { c = c, n = n, where = Where(bags, bank, worn, mail) })
                 total = total + n
             end
         end

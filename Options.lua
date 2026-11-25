@@ -37,6 +37,10 @@ local function Create()
     Checkbox("tooltipCraft", "Show who can make the item",
         "A \"Made by\" line naming the characters who know the recipe. Recipes are recorded when you open a profession window.")
 
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Mail"))
+    Checkbox("mailWarn", "Warn about mail about to expire",
+        "At login, a chat line names any character with items or gold in the mail that runs out within 3 days.")
+
     Settings.RegisterAddOnCategory(category)
 end
 

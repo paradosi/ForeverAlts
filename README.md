@@ -3,7 +3,7 @@
 # Forever Alts
 
 **Every character at a glance, for WoW Forever.** Forever Alts records each character you log in on: gold,
-level, played time, rested XP, bags, bank, gear and professions. It shows them all in one window and puts
+level, played time, rested XP, bags, bank, gear, mail and professions. It shows them all in one window and puts
 item counts on every tooltip. It does the job of Altoholic, with a cleaner look and nothing to configure.
 
 > [!NOTE]
@@ -13,16 +13,19 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
 ## Features
 
 - **Characters**: one row per character showing level (with progress through it), location, gold, played time,
-  rested XP, item level, free bag slots and when you last played it. Click any column heading to sort.
+  rested XP, item level, free bag slots, letters in the mail and when you last played it. Click any column heading to sort.
   The footer totals your gold and played time across every character.
-- **Items**: one search box covers every character's bags, bank and gear, plus the account bank. Each result shows
+- **Items**: one search box covers every character's bags, bank, gear and mail, plus the account bank. Each result shows
   who has how many. Click a character on the Characters tab to browse everything they carry.
 - **Professions**: every character's professions with skill bars and how many recipes they know. Type in the search
   box to find which of your characters can make something.
-- **Tooltips**: every item tooltip lists the characters holding it (split into bags, bank and worn), the account bank,
-  and a total. If one of your characters knows the recipe, it adds a *Made by* line.
+- **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
+  account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
+- **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a
+  letter has less than a week left, and at login a chat line names any character whose mail runs out within 3 days.
+  Mail you send to your own characters counts the moment it goes.
 - **Rested XP keeps counting** while a character is logged out, at the game's own rate: faster in an inn or city.
-- **No setup.** Log in on each character once and visit a banker once. That's it.
+- **No setup.** Log in on each character once, and visit a banker and a mailbox once. That's it.
 
 ## Requirements
 
@@ -53,11 +56,12 @@ Forever Alts can only see the character you're playing, so each character has to
 | Played time | First login (it asks the server once, so `/played` prints in chat that one time); after that it counts by itself |
 | Character bank | **When you open the bank.** Visit a banker once on each character |
 | Account bank | When any character opens the bank |
+| Mail | **When you open a mailbox**, and at once when you send mail to one of your characters |
 | Profession skill levels | On login |
 | Known recipes | **When you open that profession's window** |
 
 > [!TIP]
-> After installing, log in on each alt, open the bank, and open each profession window once. From then on
+> After installing, log in on each alt, open the bank and a mailbox, and open each profession window once. From then on
 > everything stays current as you play.
 
 ### Worked examples
@@ -97,6 +101,7 @@ Esc → Options → AddOns → **Forever Alts**, or `/alts options`. All setting
 | Include the character you're playing | On | Off lists only your other characters |
 | Include characters on other realms | On | Off counts only characters on the current realm |
 | Show who can make the item | On | The *Made by* line |
+| Warn about mail about to expire | On | A chat line at login for each character whose mail runs out within 3 days |
 
 Everything is saved in `WTF\Account\<account>\SavedVariables\ForeverAlts.lua` (`ForeverAltsDB`).
 
@@ -123,6 +128,7 @@ Releasing follows the shared pipeline: `wowdev bump ForeverAlts X.Y.Z -w`, updat
 | `ForeverAlts.toc` | Interface 16001, load order, saved variable, compartment hook |
 | `Core.lua` | Saved data and defaults, the character key, the event bus, formatting, played and rested arithmetic, `/alts` |
 | `Scan.lua` | Records the current character: summary, bags, gear, bank tabs, professions, recipes, played time |
+| `Mail.lua` | The inbox, mail sent to your own characters, expiry and the login warning |
 | `Tooltip.lua` | Item tooltip lines (counts and *Made by*), the crafter index |
 | `Theme.lua` | wowdb.dev's colour tokens and fonts, and the small widgets built from them |
 | `List.lua` | A virtual scrolling list: a fixed set of rows reused as you scroll |
@@ -148,6 +154,14 @@ from the item links seen while scanning. Search can then find items that the gam
 listed by `C_Bank.FetchPurchasedBankTabData`. They're readable only while the bank is open, so they're scanned
 on `BANKFRAME_OPENED`, on every bag change while it's open, and once more on close. The account bank is stored
 once (`ForeverAltsDB.warband`), not per character, because every character shares it.
+
+**Mail** is read when a mailbox opens, but only after the server's first `MAIL_INBOX_UPDATE`: before that the inbox
+reads empty, and recording it then would wipe the character's mail. Each character keeps `mail = { items, money,
+letters, expires, hidden, seen }`. `letters` counts only mail holding items or gold, and `expires` is when the first of
+those runs out. The server hands over at most 50 letters at a time; `hidden` is how many more wait, and the row tooltip
+says so. Sending is caught with `hooksecurefunc("SendMail")`, which reads the attachments and gold before they leave,
+and is credited to the recipient on `MAIL_SEND_SUCCESS` (dropped on `MAIL_FAILED`). The recipient matches a stored
+character by full name, ignoring case and `-`, or by first name when only one of your characters has it.
 
 **Recipes** come from `C_TradeSkillUI` when your own profession window opens. Linked professions, guild lists
 and NPC crafting orders are ignored. Each learned recipe's output item comes from `GetRecipeSchematic`, which
@@ -178,7 +192,10 @@ A secret written to saved variables would break every later comparison.
   so the addon makes one visible request per character instead.
 - **Counts by item ID, not by link.** Random-suffix gear ("of the Bear") shares one item ID, so the tooltip count
   covers every suffix together. That's what you usually want when asking "how many do I have".
-- **Not in v0.1**: mail, auctions, reputations, quests, currencies, lockouts, guild bank. Each is a self-contained
+- **Mail is per character, not per letter.** Storing the totals and the soonest expiry is all the tooltip, search and
+  warning need. A per-letter list would let the addon show each letter, but it would go stale the moment mail is taken
+  on another client or returned.
+- **Not in v0.1**: auctions, reputations, quests, currencies, lockouts, guild bank. Each is a self-contained
   scan plus a view, and can be added without changing the data already saved.
 
 ## Troubleshooting
@@ -191,6 +208,9 @@ character. Skill levels are recorded at login, but recipes aren't.
 
 **`/played` printed in chat when I logged in.** That happens once per character, the first time Forever Alts sees
 it, to learn the total.
+
+**Items an alt took out of the mail still show as mail.** The mailbox is recorded when it's open. Open a mailbox on
+that character again and it catches up.
 
 **A character I deleted is still listed.** Right-click it → *Forget this character*.
 

@@ -5,8 +5,8 @@ local T = ns.T
 local C = T.C
 local PAD = T.PAD
 
-local W, H = 900, 520            -- default size
-local MIN_W, MIN_H = 880, 380     -- every Characters column still fits at MIN_W
+local W, H = 960, 520            -- default size
+local MIN_W, MIN_H = 944, 380     -- every Characters column still fits at MIN_W
 local MAX_W, MAX_H = 1800, 1200
 local HEAD, TABS, FOOT = 40, 34, 32
 local frame
@@ -59,6 +59,18 @@ local COLUMNS = {
           return (free == 0 and Hex(C.place) or "") .. free .. "|r" .. MUTED .. " / " .. c.bagSlots .. "|r"
       end,
       sort = function(c) return c.bagFree or 0 end },
+    { key = "mail",   label = "MAIL",      width = 64,  justify = "RIGHT",
+      text = function(c)
+          local m = c.mail
+          if not m then return MUTED .. "—|r" end
+          if (m.letters or 0) == 0 then return MUTED .. "0|r" end
+          local left = ns.MailLeft(c)
+          if left and left < 7 * 86400 then
+              return m.letters .. Hex(C.place) .. " " .. (left > 0 and (math.ceil(left / 86400) .. "d") or "!") .. "|r"
+          end
+          return tostring(m.letters)
+      end,
+      sort = function(c) return c.mail and c.mail.letters or -1 end },
     { key = "seen",   label = "SEEN",      width = 70,  justify = "RIGHT",
       text = function(c) return c == ns.me and GOLD .. "online|r" or ns.Ago(c.lastSeen) end,
       sort = function(c) return c == ns.me and math.huge or (c.lastSeen or 0) end },
@@ -138,16 +150,36 @@ local function BuildCharacters(view)
             if not c then return end
             GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 12, 0)
             GameTooltip:AddLine(ns.ColorName(c))
-            local line = string.format("Level %s %s %s", c.level or "?", c.race or "",
+            local who = string.format("Level %s %s %s", c.level or "?", c.race or "",
                 c.class and (LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class) or "")
-            if c.realm and c.realm ~= "" then line = line .. " · " .. c.realm end
-            GameTooltip:AddLine(line, 0.761, 0.784, 0.855)
+            if c.realm and c.realm ~= "" then who = who .. " · " .. c.realm end
+            GameTooltip:AddLine(who, 0.761, 0.784, 0.855)
             if c.playedLevel then GameTooltip:AddDoubleLine("Played this level", ns.Duration(c.playedLevel), 0.588, 0.616, 0.702, 1, 1, 1) end
             for _, p in ipairs(c.profs or {}) do
                 GameTooltip:AddDoubleLine(p.name, p.rank .. " / " .. p.max, 0.588, 0.616, 0.702, 1, 1, 1)
             end
             if c.bankSeen then GameTooltip:AddDoubleLine("Bank recorded", ns.Ago(c.bankSeen), 0.588, 0.616, 0.702, 1, 1, 1)
             else GameTooltip:AddLine("Bank not recorded yet: visit a banker on this character.", 0.953, 0.663, 0.510, true) end
+            local m = c.mail
+            if m then
+                if m.seen then GameTooltip:AddDoubleLine("Mailbox recorded", ns.Ago(m.seen), 0.588, 0.616, 0.702, 1, 1, 1) end
+                if (m.letters or 0) > 0 then
+                    local what = m.letters .. " letter" .. (m.letters == 1 and "" or "s")
+                    if (m.money or 0) > 0 then what = what .. ", " .. ns.Money(m.money) end
+                    GameTooltip:AddDoubleLine("In the mail", what, 0.588, 0.616, 0.702, 1, 1, 1)
+                    local left = ns.MailLeft(c)
+                    if left then
+                        local soon = left < 3 * 86400
+                        GameTooltip:AddDoubleLine("First to expire", left > 0 and ("in " .. ns.Duration(left)) or "expired?",
+                            0.588, 0.616, 0.702, soon and 0.953 or 1, soon and 0.663 or 1, soon and 0.510 or 1)
+                    end
+                end
+                if (m.hidden or 0) > 0 then
+                    GameTooltip:AddLine(m.hidden .. " more letters wait on the server: take some mail to see them.", 0.953, 0.663, 0.510, true)
+                end
+            else
+                GameTooltip:AddLine("Mailbox not recorded yet: open a mailbox on this character.", 0.953, 0.663, 0.510, true)
+            end
             GameTooltip:AddLine("Click to browse items · Right-click for more", 0.890, 0.714, 0.392)
             GameTooltip:Show()
         end)
@@ -243,7 +275,7 @@ local function Inventory(onlyKey)
     for key, c in pairs(ns.db.chars) do
         if not onlyKey or key == onlyKey then
             local seen = {}
-            for _, t in ipairs({ c.bags or {}, c.bank or {}, c.equipped or {} }) do
+            for _, t in ipairs({ c.bags or {}, c.bank or {}, c.equipped or {}, c.mail and c.mail.items or {} }) do
                 for id in pairs(t) do seen[id] = true end
             end
             for id in pairs(seen) do Add(id, c, (ns.Holdings(c, id))) end
@@ -256,7 +288,7 @@ local function Inventory(onlyKey)
 end
 
 local function BuildItems(view)
-    view.search = T.SearchBox(view, "Search every character's bags, bank and gear", function(text)
+    view.search = T.SearchBox(view, "Search every character's bags, bank, gear and mail", function(text)
         view.query = text
         view:Refresh()
     end)
@@ -326,7 +358,7 @@ local function BuildItems(view)
         if query == "" and not onlyChar then
             self.list:SetData({})
             self.hint:SetText("Type part of an item's name.\n\nBags and gear are recorded whenever you log in; "
-                .. "the bank when you visit a banker, so open it once on each character.")
+                .. "the bank and mail when you open them, so visit a banker and a mailbox once on each character.")
             self.hint:Show()
             local n = 0
             for _ in pairs(Inventory()) do n = n + 1 end

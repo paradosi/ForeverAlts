@@ -171,6 +171,29 @@ Settings = {
 }
 function CreateSettingsListSectionHeaderInitializer() end
 
+-- Mail: two letters, one with 4 Runecloth and 2 days left, one with 50 silver and 20 days;
+-- plus a plain text letter. 53 letters on the server, 3 shown.
+local inbox = {
+    { money = 0, days = 2, item = { id = 14047, count = 4 } },
+    { money = 5000, days = 20 },
+    { money = 0, days = 29 },
+}
+local hooks = {}
+function hooksecurefunc(name, fn) hooks[name] = fn end
+function GetInboxNumItems() return #inbox, 53 end
+function GetInboxHeaderInfo(i)
+    local m = inbox[i]
+    return nil, nil, "Sender", "Subject", m.money, 0, m.days, m.item and 1 or nil
+end
+function GetInboxItem(i, a)
+    local it = inbox[i].item
+    if it and a == 1 then return "Runecloth", it.id, 2, it.count, 1, true end
+end
+function GetInboxItemLink(i, a) if inbox[i].item and a == 1 then return "|Hitem:14047::|h[Runecloth]|h" end end
+local sendSlots = { [1] = { id = 2589, count = 10 } }
+function GetSendMailItem(a) local s = sendSlots[a]; if s then return "Linen Cloth", s.id, 1, s.count, 1 end end
+function GetSendMailMoney() return 0 end
+
 ---- Load in TOC order
 
 local ns = {}
@@ -219,6 +242,25 @@ Fire("TRADE_SKILL_SHOW")
 RunTimers()
 check(me.recipes.Tailoring[2387] == 2996 and me.recipes.Tailoring[2393] == nil, "only learned recipes recorded")
 
+-- Mail: nothing is read until the server answers, then the inbox is counted
+Fire("MAIL_SHOW")
+check(me.mail == nil, "mail not recorded before the inbox arrives")
+Fire("MAIL_INBOX_UPDATE")
+RunTimers()
+check(me.mail and me.mail.items[14047] == 4 and me.mail.money == 5000, "mail items and gold counted")
+check(me.mail.letters == 2 and me.mail.hidden == 50, "letters with items or gold, and the unseen rest")
+check(me.mail.expires == now + 2 * 86400, "soonest expiry is the 2-day letter")
+Fire("MAIL_CLOSED")
+
+-- Sending 10 Linen to Borin by first name counts it in his mail at once
+hooks.SendMail("borin", "", "")
+Fire("MAIL_SEND_SUCCESS")
+local borinMail = db.chars["Dreamscythe|Borin Stonefist"].mail
+check(borinMail and borinMail.items[2589] == 10 and borinMail.letters == 1, "mail sent to an alt counted on arrival")
+hooks.SendMail("Stranger Person", "", "")
+Fire("MAIL_SEND_SUCCESS")
+check(borinMail.letters == 1, "mail to someone else is ignored")
+
 -- Rested: 16h in an inn = 10% of a level on top of 0
 local borin = db.chars["Dreamscythe|Borin Stonefist"]
 check(math.abs(ns.Rested(borin) - 0.10) < 0.001, "offline rested XP grows 5% per 8h resting")
@@ -235,8 +277,11 @@ for _, fn in ipairs(tooltipCalls) do fn(tip, { id = 2589 }) end
 local text = table.concat(lines, "\n")
 check(text:find("Aelin Galathynius|r = 55") ~= nil, "tooltip: this character 55 (40 bags + 15 bank)")
 check(text:find("Aelin Galathynius|r = 55  |cff969db3bags 40, bank 15|r", 1, true) ~= nil, "tooltip: split shows each place")
-check(text:find("Borin Stonefist|r = 7  |cff969db3bags|r", 1, true) ~= nil, "tooltip: one place shows no repeat count")
-check(text:find("Account bank = 5") ~= nil and text:find("Total = 67") ~= nil, "tooltip: account bank and total")
+check(text:find("Borin Stonefist|r = 17  |cff969db3bags 7, mail 10|r", 1, true) ~= nil, "tooltip: alt's bags and mail")
+lines = {}
+for _, fn in ipairs(tooltipCalls) do fn(tip, { id = 14047 }) end
+check(table.concat(lines, "\n"):find("= 7  |cff969db3bank 3, mail 4|r", 1, true) ~= nil, "tooltip: mail counted for this character")
+check(text:find("Account bank = 5") ~= nil and text:find("Total = 77") ~= nil, "tooltip: account bank and total")
 lines = {}
 for _, fn in ipairs(tooltipCalls) do fn(tip, { id = 2996 }) end
 check(table.concat(lines):find("Made by") ~= nil, "tooltip: Made by line for a crafted item")
@@ -275,6 +320,15 @@ GetXPExhaustion = function() return nil end
 Fire("PLAYER_LOGOUT")
 check(me.money == 1234567 and me.xp == 4000 and me.rested == 2500, "logout keeps gold, XP and rested")
 check(me.played == 90600, "played time saved at logout")
+
+-- The login warning names the character whose mail runs out in 2 days
+local said = {}
+local Say = ns.Say
+ns.Say = function(msg) said[#said + 1] = msg end
+Fire("PLAYER_LOGIN")
+RunTimers()
+ns.Say = Say
+check(#said == 1 and said[1]:find("Aelin Galathynius") and said[1]:find("expiring in 2d"), "login warns about expiring mail")
 
 ns:Forget("Dreamscythe|Borin Stonefist")
 check(db.chars["Dreamscythe|Borin Stonefist"] == nil, "forget removes a character")

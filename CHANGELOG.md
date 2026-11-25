@@ -10,6 +10,10 @@
 - **Professions**: each character's skill levels, and a search for who knows a recipe.
 - **Tooltips**: how many of an item each character has (bags, bank, worn), the account bank, a total,
   and which of your characters can make it.
+- **Mail**: items and gold in each character's mailbox count in tooltips, search and a new MAIL column,
+  which turns orange when a letter has less than a week left. Mail you send to your own characters
+  counts straight away. At login, a chat line warns about mail that runs out within 3 days.
+- Tooltips say just "bags" when everything is in one place, and split it out ("bags 10, bank 2") only when it isn't.
 - Fixed: gold, XP and rested were saved as 0 when you logged out.
 - Fixed: played time is now asked for on a character's first login (it errored).
 - The window is resizable: drag the bottom-right corner. Wider windows give the Location column more room.

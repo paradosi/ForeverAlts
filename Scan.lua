@@ -22,6 +22,7 @@ local function Remember(itemID, link, quality, icon)
         link = link,
     }
 end
+ns.Remember = Remember
 
 -- Add one container's contents into counts (itemID -> count)
 local function ReadContainer(bag, counts)

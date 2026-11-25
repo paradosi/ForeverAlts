@@ -10,6 +10,7 @@ ns.defaults = {
     tooltipCraft = true,   -- "Made by" line on items an alt can craft
     allRealms    = true,   -- count characters on every realm, not just this one
     tooltipSelf  = true,   -- include the character you are playing in the counts
+    mailWarn     = true,   -- at login, name characters whose mail is about to expire
     sortKey      = "level",
     sortDesc     = true,
 }
