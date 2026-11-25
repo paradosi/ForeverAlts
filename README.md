@@ -38,6 +38,7 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   *Copy* gives a plan as one line of text (`FA1;PRIEST;…`) to share; *Paste* takes one in.
   The order you add points is the order to learn them: hover *Level order* for the list by level, the next
   talent is outlined in white, and with points to spend a chat line names the next talent (Options → Talents).
+  The next talent also glows in the game's own talent window: an overlay of ours, Blizzard's buttons are only read.
 - **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
   account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
 - **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a

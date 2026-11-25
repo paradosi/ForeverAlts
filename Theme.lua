@@ -160,9 +160,116 @@ function T.SearchBox(parent, placeholder, onChange)
         hint:SetShown(self:GetText() == "")
         onChange(self:GetText())
     end)
-    box:SetScript("OnEditFocusGained", function() glass:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end)
-    box:SetScript("OnEditFocusLost", function() glass:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
+    box:SetScript("OnEditFocusGained", function(self)
+        glass:SetTextColor(C.accent[1], C.accent[2], C.accent[3])
+        self.hoverGlow = self.hoverGlow or T.Glow(self)
+        self.hoverGlow:SetActive(true)
+    end)
+    box:SetScript("OnEditFocusLost", function(self)
+        glass:SetTextColor(C.muted[1], C.muted[2], C.muted[3])
+        if self.hoverGlow and not self:IsMouseOver() then self.hoverGlow:SetActive(false) end
+    end)
+    box.hoverGlow = false
+    T.HoverGlow(box)
     return box
+end
+
+-- wowdb's .glow: a line of light that runs around a box's border. Two comets of gold
+-- (bright head, fading tail) chase each other round the edge, 1.25px thick, fading in and
+-- out over 0.3s. Drawn as short segments placed along the perimeter each frame, only
+-- while it shows. glow:SetActive(on); glow:SetTarget(frame) moves it onto another frame.
+local GLOW_LAP, GLOW_FADE, GLOW_SEGS, GLOW_COMETS, GLOW_LEN = 4.4, 0.3, 10, 2, 0.16
+
+function T.Glow(owner, parent)
+    local g = CreateFrame("Frame", nil, parent or owner)
+    g:SetFrameLevel(owner:GetFrameLevel() + 6)
+    g:SetAllPoints(owner)
+    g:Hide()
+    g.tint = g:CreateTexture(nil, "BACKGROUND")
+    g.tint:SetColorTexture(1, 1, 1, 0.02)  -- wowdb's #ffffff05 under the cursor
+    g.tint:SetAllPoints()
+    g.segs = {}
+    for i = 1, GLOW_COMETS * GLOW_SEGS do
+        local t = g:CreateTexture(nil, "OVERLAY")
+        local k = ((i - 1) % GLOW_SEGS) / GLOW_SEGS     -- 0 at the head, near 1 at the tail
+        local r = C.accentHi[1] + (C.accent[1] - C.accentHi[1]) * k
+        local gr = C.accentHi[2] + (C.accent[2] - C.accentHi[2]) * k
+        local b = C.accentHi[3] + (C.accent[3] - C.accentHi[3]) * k
+        t:SetColorTexture(r, gr, b, (1 - k) ^ 1.6)
+        g.segs[i] = t
+    end
+    g.t, g.alpha, g.on = 0, 0, false
+    g.thick = 1.25
+
+    -- One segment [s, s + len] of the perimeter (clockwise from the top left), clipped to its side
+    local function Place(tex, s, len, w, h)
+        local P = 2 * (w + h)
+        s = s % P
+        local th = g.thick
+        tex:ClearAllPoints()
+        if s < w then
+            tex:SetPoint("TOPLEFT", g, "TOPLEFT", s, 0)
+            tex:SetSize(math.max(0.01, math.min(len, w - s)), th)
+        elseif s < w + h then
+            local y = s - w
+            tex:SetPoint("TOPRIGHT", g, "TOPRIGHT", 0, -y)
+            tex:SetSize(th, math.max(0.01, math.min(len, h - y)))
+        elseif s < 2 * w + h then
+            local x = w - (s - w - h)               -- running right to left along the bottom
+            local from = math.max(0, x - len)
+            tex:SetPoint("BOTTOMLEFT", g, "BOTTOMLEFT", from, 0)
+            tex:SetSize(math.max(0.01, x - from), th)
+        else
+            local y = h - (s - 2 * w - h)           -- running up the left side
+            local from = math.max(0, y - len)
+            tex:SetPoint("TOPLEFT", g, "TOPLEFT", 0, -from)
+            tex:SetSize(th, math.max(0.01, y - from))
+        end
+    end
+
+    g:SetScript("OnUpdate", function(self, elapsed)
+        self.t = self.t + elapsed
+        local want = self.on and 1 or 0
+        if self.alpha ~= want then
+            local step = elapsed / GLOW_FADE
+            self.alpha = want > self.alpha and math.min(want, self.alpha + step) or math.max(want, self.alpha - step)
+            self:SetAlpha(self.alpha)
+            if self.alpha == 0 then self:Hide(); return end
+        end
+        local w, h = self:GetWidth(), self:GetHeight()
+        if not w or w <= 0 or not h or h <= 0 then return end
+        local P = 2 * (w + h)
+        local len = P * GLOW_LEN / GLOW_SEGS
+        for c = 0, GLOW_COMETS - 1 do
+            local head = ((self.t / GLOW_LAP) % 1) * P + c * P / GLOW_COMETS
+            for i = 1, GLOW_SEGS do
+                Place(self.segs[c * GLOW_SEGS + i], head - i * len, len, w, h)
+            end
+        end
+    end)
+
+    function g:SetActive(on)
+        self.on = on and true or false
+        if self.on then self:Show() end
+    end
+    function g:SetTarget(frame)
+        self:ClearAllPoints()
+        self:SetAllPoints(frame)
+        self:SetFrameLevel(frame:GetFrameLevel() + 6)
+    end
+    return g
+end
+
+-- The glow on hover, made the first time the pointer arrives. Call after the frame's own
+-- OnEnter/OnLeave are set: SetScript would replace the hooks.
+function T.HoverGlow(frame)
+    frame:HookScript("OnEnter", function(self)
+        self.hoverGlow = self.hoverGlow or T.Glow(self)
+        self.hoverGlow:SetActive(true)
+    end)
+    frame:HookScript("OnLeave", function(self)
+        if self.hoverGlow and not (self.HasFocus and self:HasFocus()) then self.hoverGlow:SetActive(false) end
+    end)
 end
 
 -- A thin bar: faint gold track, gold fill; :SetValue(fraction)

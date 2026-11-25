@@ -49,6 +49,8 @@ local function Create()
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Talents"))
     Checkbox("planRemind", "Remind me of my talent plan",
         "When you have talent points to spend, a chat line names the next talent in your class's chosen plan (/alts plan).")
+    Checkbox("planGlow", "Show the plan in the talent window",
+        "The next talent to learn in your class's chosen plan has a running gold border in the game's talent window.")
 
     Settings.RegisterAddOnCategory(category)
 end

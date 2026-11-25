@@ -513,6 +513,32 @@ do
     borin.talents = nil
     talentsView.pick = false
 end
+-- The running glow: fades in, keeps every segment on the box's edge, fades out and hides
+do
+    local box = CreateFrame("Frame")
+    local g = ns.T.Glow(box)
+    g.GetWidth = function() return 100 end
+    g.GetHeight = function() return 40 end
+    local placed = {}
+    for _, t in ipairs(g.segs) do
+        t.SetPoint = function(_, p, _, _, x, y) placed[t] = { p = p, x = x or 0, y = y or 0 } end
+        t.SetSize = function(_, w, h) placed[t].w, placed[t].h = w, h end
+    end
+    g:SetActive(true)
+    local ok = true
+    for _ = 1, 50 do
+        g.scripts.OnUpdate(g, 0.037)
+        for _, q in pairs(placed) do
+            local x, y = math.abs(q.x), math.abs(q.y)
+            if x + q.w > 100.01 or y + q.h > 40.01 or q.w <= 0 or q.h <= 0 then ok = false end
+        end
+    end
+    check(g.alpha == 1 and ok, "glow: fades in and stays on the border")
+    g:SetActive(false)
+    for _ = 1, 20 do if g.shown then g.scripts.OnUpdate(g, 0.05) end end
+    check(g.alpha == 0 and not g.shown, "glow: fades out and hides")
+end
+
 C_Spell.GetSpellName = C_Spell.GetSpellName or function(id) return "Spell " .. id end
 SlashCmdList.FOREVERALTS("plan")
 local function Talent(spell)
@@ -589,6 +615,40 @@ spec.unspent = unspent
 check(#told == 1 and told[1]:find("next talent in \"Plan 1\"", 1, true) and told[1]:find("rank 3", 1, true), "order: reminder said once")
 SlashCmdList.FOREVERALTS("plan")
 check(foot():find("next: ", 1, true) ~= nil, "order: footer names the next talent")
+
+-- The game's talent window: the next planned talent's button gets the glow
+do
+    local buttons = {}
+    for _, id in ipairs({ 3010, 3020, 3030 }) do
+        local b = CreateFrame("Button")
+        b.GetSpellID = function() return id end
+        buttons[#buttons + 1] = b
+    end
+    local tf = CreateFrame("Frame")
+    tf.IsVisible = function() return true end
+    tf.EnumerateAllTalentButtons = function()
+        local i = 0
+        return function() i = i + 1; return buttons[i] end
+    end
+    PlayerSpellsFrame = { TalentsFrame = tf }
+    local target
+    local Real = ns.T.Glow
+    ns.T.Glow = function(owner, parent)
+        local g = Real(owner, parent)
+        local SetTarget = g.SetTarget
+        g.SetTarget = function(self, f) target = f; SetTarget(self, f) end
+        return g
+    end
+    ns.GameTalentGlow()
+    ns.T.Glow = Real
+    check(target == buttons[2], "game window: the next talent (3020) glows")
+    ns.settings.planGlow = false
+    target = nil
+    ns.GameTalentGlow()
+    check(target == nil, "game window: off in options, no glow")
+    ns.settings.planGlow = true
+    PlayerSpellsFrame = nil
+end
 SlashCmdList.FOREVERALTS("locks")
 check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
 now = now + 5 * 86400

@@ -138,6 +138,7 @@ local function ScanTalents()
     if next(specs) then me.talents = { active = active, specs = specs, seen = time() } end
     if ns.RefreshUI then ns.RefreshUI() end
     if ns.RemindPlan then ns.RemindPlan() end
+    if ns.GameTalentGlow then ns.GameTalentGlow() end
 end
 
 local function Soon() ns:Debounce("talents", 1, ScanTalents) end
@@ -311,3 +312,48 @@ function ns.RemindPlan()
     ns.Say("next talent in \"" .. book.active .. "\": " .. (link or ns.StepName(step)) .. " rank " .. step.rank
         .. " (" .. spec.unspent .. " point" .. (spec.unspent == 1 and "" or "s") .. " to spend).")
 end
+
+---- The plan in the game's talent window: the next talent to learn wears the same running
+---- gold glow as in the planner. Our own frame, laid over Blizzard's button: nothing of
+---- theirs is changed (their search highlight would taint the window), only read.
+
+local gameGlow
+
+function ns.GameTalentGlow()
+    local tf = PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame
+    local function Off() if gameGlow then gameGlow:SetActive(false) end end
+    if not (tf and tf:IsVisible() and ns.settings.planGlow and tf.EnumerateAllTalentButtons) then return Off() end
+    local me = ns.me
+    local spec = me and ns.ActiveSpec(me)
+    local book = me and me.class and ns.db.plans[me.class]
+    local plan = spec and book and book.list and book.list[book.active]
+    local step = plan and ns.NextStep(plan, spec)
+    if not step then return Off() end
+    local target
+    for button in tf:EnumerateAllTalentButtons() do
+        local id = button:IsShown() and button.GetSpellID and button:GetSpellID()
+        if id and (not canaccessvalue or canaccessvalue(id)) and id == step.key then target = button; break end
+    end
+    if not target then return Off() end
+    gameGlow = gameGlow or ns.T.Glow(target, tf)
+    gameGlow.thick = 2
+    gameGlow:SetTarget(target)
+    gameGlow:SetActive(true)
+end
+
+local function GlowSoon() C_Timer.After(0.2, ns.GameTalentGlow) end
+local hooked = false
+local function HookTalentWindow()
+    local tf = PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame
+    if hooked or not tf then return end
+    hooked = true
+    tf:HookScript("OnShow", GlowSoon)
+    tf:HookScript("OnHide", function() if gameGlow then gameGlow:SetActive(false) end end)
+end
+ns:On("ADDON_LOADED", function(name)
+    if name == "Blizzard_PlayerSpells" then HookTalentWindow() end
+end)
+ns:On("PLAYER_LOGIN", HookTalentWindow)  -- in case it loaded before us
+-- After a point is spent (or the talent window redraws its buttons), place it again
+ns:On("TRAIT_CONFIG_UPDATED", function() C_Timer.After(1.3, ns.GameTalentGlow) end)
+ns:On("TRAIT_NODE_CHANGED", GlowSoon)

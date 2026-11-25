@@ -965,7 +965,7 @@ local PLANNED, OPEN = { 0.471, 0.663, 0.937 }, { 0.890, 0.714, 0.392, 0.45 }
 
 local function BuildTalents(view)
     view.pick, view.group, view.spec, view.mode = false, false, false, "class"
-    view.charDrop, view.specButtons, view.panels = false, {}, {}
+    view.charDrop, view.specButtons, view.panels, view.nextGlow = false, {}, {}, false
 
     -- Copy the loadout code: a field with the code selected, ready for Ctrl+C
     view.copy = T.TextButton(view, "COPY LOADOUT CODE", 10)
@@ -1129,6 +1129,8 @@ local function BuildTalents(view)
             GameTooltip:Show()
         end)
         b:SetScript("OnLeave", GameTooltip_Hide)
+        b.hoverGlow = false
+        T.HoverGlow(b)
         p.nodes[i] = b
         return b
     end
@@ -1352,7 +1354,7 @@ local function BuildTalents(view)
             end
             p.used, p.lineCount = 0, 0
         end
-        local placed = {}
+        local placed, nextShown = {}, false
         for idx, node in ipairs(nodes) do
             local p = node.t <= n and not node.hidden and self.panels[node.t]
             if p then
@@ -1374,7 +1376,13 @@ local function BuildTalents(view)
                 b.icon:SetDesaturated(not on)
                 b.icon:SetAlpha(on and 1 or (open and 0.8 or 0.45))
                 -- The next talent to learn in the plan stands out in white
-                if plan and self.nextKey and node.s == self.nextKey then col, open = C.primary, false end
+                if plan and self.nextKey and node.s == self.nextKey then
+                    col, open = C.primary, false
+                    self.nextGlow = self.nextGlow or T.Glow(b, self)
+                    self.nextGlow:SetTarget(b)
+                    self.nextGlow:SetActive(true)
+                    nextShown = true
+                end
                 T.Fill(b.edge, open and OPEN or col)
                 b.rank:SetText(r .. "/" .. node.m)
                 local rc = on and col or C.muted
@@ -1383,6 +1391,7 @@ local function BuildTalents(view)
                 placed[idx] = b
             end
         end
+        if self.nextGlow and not nextShown then self.nextGlow:SetActive(false) end
         -- Prerequisite arrows: gold once the talent they lead to has points
         for idx, node in ipairs(nodes) do
             local from = placed[idx]
@@ -1546,6 +1555,8 @@ local function BuildTalents(view)
             drop.arrow:SetText("▾")
             drop:SetScript("OnEnter", function(b) b.arrow:SetTextColor(C.accent[1], C.accent[2], C.accent[3]) end)
             drop:SetScript("OnLeave", function(b) b.arrow:SetTextColor(C.muted[1], C.muted[2], C.muted[3]) end)
+            drop.hoverGlow = false
+            T.HoverGlow(drop)
             drop.chars = {}
 
             -- The list drops from the box, in the window's own look: a row per character,
@@ -1682,6 +1693,7 @@ local function BuildTalents(view)
         self.steps = plan and ns.PlanSteps(plan.saved, spec) or false
         local nextStep = plan and ns.NextStep(plan.saved, spec)
         self.nextKey = nextStep and nextStep.key or false
+        if plan and ns.GameTalentGlow then ns.GameTalentGlow() end
         for _, b in ipairs({ self.clearPlan, self.scratch, self.fromCurrent }) do b:SetShown(plan and true or false) end
         self:PlanBar(book, c)
         if box:IsShown() then
