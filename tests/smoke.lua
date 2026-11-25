@@ -223,6 +223,7 @@ local talentNodes = {
     [101] = { ID = 101, posX = 1000, posY = 1000, isVisible = true, groupIDs = { 12 }, entryIDs = { 201 }, currentRank = 5, maxRanks = 5,
               visibleEdges = { { targetNode = 102 } } },
     [102] = { ID = 102, posX = 1000, posY = 1600, isVisible = true, groupIDs = { 12 }, entryIDs = { 202 }, currentRank = 2, maxRanks = 3, visibleEdges = {} },
+    [104] = { ID = 104, posX = 16000, posY = 10000, isVisible = true, groupIDs = { 12 }, entryIDs = { 204 }, currentRank = 0, maxRanks = 5, visibleEdges = {} },
     [103] = { ID = 103, posX = 1600, posY = 1000, isVisible = true, groupIDs = { 11 }, entryIDs = { 203 }, currentRank = 0, maxRanks = 5, visibleEdges = {} },
 }
 -- The Legacy System: renown 3; Professions has one talent (1/1), Adventure two
@@ -247,7 +248,7 @@ C_Traits = {
     GetGroupCurrencyInfo = function() return { { traitNodeGroupID = 12, currencyInfos = { { spent = 7 } } } } end,
     GetTreeNodes = function(tree)
         if tree == 1187 then return { 301 } elseif tree == 1188 then return { 302, 303 } elseif tree == 1189 then return {} end
-        return { 101, 102, 103 }
+        return { 101, 102, 103, 104 }
     end,
     GetConfigIDByTreeID = function(tree) return tree + 10000 end,
     GetNodeInfo = function(_, id) return talentNodes[id] end,
@@ -358,7 +359,7 @@ check(askedRaids == 2, "lockouts: a boss kill asks again")
 -- Talents: the trees in the game's order, points per tree, ranks and arrows
 local spec = me.talents and me.talents.specs[1]
 check(spec and spec.trees[1].name == "Arcane" and spec.trees[2].spent == 7 and spec.trees[3].spent == 0, "talents: trees in order, points spent")
-check(spec and #spec.nodes == 3 and spec.unspent == 2 and spec.code == "BAAAAAAAAtalentcode", "talents: nodes, unspent points, loadout code")
+check(spec and #spec.nodes == 4 and spec.unspent == 2 and spec.code == "BAAAAAAAAtalentcode", "talents: nodes, unspent points, loadout code")
 local fireball
 for _, n in ipairs(spec and spec.nodes or {}) do if n.s == 3010 then fireball = n end end
 check(fireball and fireball.t == 2 and fireball.r == 5 and fireball.e and spec.nodes[fireball.e[1]].s == 3020, "talents: rank and prerequisite arrow")
@@ -477,7 +478,7 @@ SlashCmdList.FOREVERALTS("talents")
 check(ForeverAltsFrame.footer.text:find("Aelin Galathynius   ·   Fire 0/7/0", 1, true) ~= nil, "talents: tab draws the active spec")
 local drawn = 0
 for _, f in ipairs(allFrames) do if rawget(f, "node") then drawn = drawn + 1 end end
-check(drawn == 3, "talents: every talent placed (" .. drawn .. ")")
+check(drawn == 3, "talents: every talent placed, the off-canvas one left out (" .. drawn .. ")")
 ns.ShowTalents("Dreamscythe|Borin Stonefist")
 check(ForeverAltsFrame.footer.text:find("Aelin", 1, true) ~= nil, "talents: a character without talents falls back")
 SlashCmdList.FOREVERALTS("legacy")

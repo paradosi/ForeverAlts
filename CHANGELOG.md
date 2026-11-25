@@ -24,8 +24,9 @@
   the Characters tab shows points per tree and any unspent. Right-click a character for *Show talents*.
 - **Legacy trees**: the Talents tab's LEGACY button shows each character's Legacy System trees (Professions,
   Adventure, Progression), with Legacy points to spend and Legacy renown. `/alts legacy` opens it.
-- Fixed: talent trees were drawn tiny and squashed, with a stray talent far below its tree (Forever's talent
-  positions have small slips in them; the grid now snaps to them).
+- Fixed: talent trees were drawn tiny and squashed, with a stray talent beside or below a tree (Forever's talent
+  positions have small slips in them, and a few hidden talents sit far off the tree; the grid now snaps to the
+  slips and leaves the hidden ones out).
 - The window is a little wider to fit the new column.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.
   The *Made by* line follows them too.

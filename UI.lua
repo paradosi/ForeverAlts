@@ -1074,21 +1074,21 @@ local function BuildTalents(view)
     end
 
     -- The game's positions to a grid. Forever's talent data has slips in it: a few
-    -- positions are off by 10 (5740 among 5730s) and a few have a digit too many (39300
-    -- for 3930). So a value far above the tree's median loses that digit, the grid step is
-    -- the most common gap between neighbouring positions (not the smallest), and each
-    -- position snaps to the nearest step. Each tree is measured alone.
+    -- positions are off by 10 (5740 among 5730s), so the grid step is the most common gap
+    -- between neighbouring positions (not the smallest) and each position snaps to the
+    -- nearest step. A few nodes sit ten times further out (102800 among 10280s): the game
+    -- draws those off its canvas, out of sight, so they're left out here too (nil).
+    -- Each tree is measured alone.
     local function Grid(nodes, key, tree)
         local vals = {}
         for _, node in ipairs(nodes) do if node.t == tree then vals[#vals + 1] = node[key] end end
         if #vals == 0 then return function() return 0 end end
         table.sort(vals)
         local median = vals[math.ceil(#vals / 2)]
-        local function Fix(v) if median > 0 and v > median * 5 then return v / 10 end return v end
+        local function Out(v) return median > 0 and v > median * 5 end
         local list, seen = {}, {}
         for _, v in ipairs(vals) do
-            v = Fix(v)
-            if not seen[v] then seen[v] = true; list[#list + 1] = v end
+            if not Out(v) and not seen[v] then seen[v] = true; list[#list + 1] = v end
         end
         table.sort(list)
         local count, step, best = {}, nil, 0
@@ -1102,7 +1102,10 @@ local function BuildTalents(view)
         step = step or 1
         -- Neighbouring columns can be several steps apart (a gap in a tree): measure from the smallest
         local origin = list[1]
-        return function(v) return math.max(0, math.floor((Fix(v) - origin) / step + 0.5)) end
+        return function(v)
+            if Out(v) then return nil end
+            return math.max(0, math.floor((v - origin) / step + 0.5))
+        end
     end
 
     -- Lay one spec out across the view's width and height
@@ -1120,8 +1123,10 @@ local function BuildTalents(view)
         for i = 1, n do colOf[i], rowOf[i] = Grid(nodes, "x", i), Grid(nodes, "y", i) end
         local cols, rows = {}, 1
         for _, node in ipairs(nodes) do
-            node.col = colOf[node.t] and colOf[node.t](node.x) or 0
-            node.row = rowOf[node.t] and rowOf[node.t](node.y) or 0
+            node.col = colOf[node.t] and colOf[node.t](node.x)
+            node.row = rowOf[node.t] and rowOf[node.t](node.y)
+            node.hidden = not (node.col and node.row)
+            node.col, node.row = node.col or 0, node.row or 0
             cols[node.t] = math.max(cols[node.t] or 1, node.col + 1)
             rows = math.max(rows, node.row + 1)
         end
@@ -1149,7 +1154,7 @@ local function BuildTalents(view)
         end
         local placed = {}
         for idx, node in ipairs(nodes) do
-            local p = node.t <= n and self.panels[node.t]
+            local p = node.t <= n and not node.hidden and self.panels[node.t]
             if p then
                 p.used = p.used + 1
                 local b = Node(p, p.used)
