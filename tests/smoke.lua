@@ -352,6 +352,19 @@ SlashCmdList.FOREVERALTS("reps night")
 ns.ShowUI("reps", "", "Dreamscythe|Borin Stonefist")
 check(ForeverAltsFrame and true, "reputation filtered to a character with none recorded")
 ns.ShowUI("reps", "", false)
+-- Clicking a profession row lists that character's recipes; the chip goes back
+SlashCmdList.FOREVERALTS("profs")
+SizeLists()
+local profRow
+for _, f in ipairs(SIZED) do
+    for _, r in ipairs(rawget(f, "rows") or {}) do
+        local it = rawget(r, "item")
+        if it and it.p and it.p.name == "Tailoring" and it.c.name == "Aelin Galathynius" then profRow = r end
+    end
+end
+check(profRow ~= nil, "professions: a Tailoring row to click")
+if profRow then profRow.scripts.OnClick(profRow, "LeftButton") end
+check(ForeverAltsFrame.footer.text:find("1 Tailoring recipe on Aelin Galathynius", 1, true) ~= nil, "professions: click lists the recipes")
 ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")
 ns.ShowUI("chars")
 RunTimers()

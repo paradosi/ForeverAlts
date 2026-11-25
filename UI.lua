@@ -422,6 +422,18 @@ local function BuildProfessions(view)
     view.search:SetPoint("TOPLEFT", 0, 0)
     view.search:SetWidth(360)
 
+    -- Clicking a character's profession lists its recipes; the chip goes back
+    view.openProf = false  -- { key, prof } while one character's recipes are listed
+    view.back = CreateFrame("Button", nil, view)
+    view.back:SetHeight(24)
+    view.back:SetPoint("LEFT", view.search, "RIGHT", 10, 0)
+    view.back.text = T.Chip(view.back)
+    view.back.text:SetPoint("LEFT", 8, 0)
+    view.back:SetScript("OnClick", function()
+        view.openProf = false
+        view.search:SetText("")  -- refreshes
+    end)
+
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
     view.hint:SetPoint("TOPLEFT", PAD, -120)
     view.hint:SetPoint("TOPRIGHT", -PAD, -120)
@@ -446,13 +458,32 @@ local function BuildProfessions(view)
         row.extra:SetPoint("LEFT", 600, 0)
         row:SetScript("OnEnter", function(self)
             local e = self.item
-            if not e or not e.recipe then return end
+            if not e then return end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            if e.recipe.item then GameTooltip:SetItemByID(e.recipe.item)
-            else GameTooltip:SetText(e.recipe.name or "?") end
+            if not e.recipe then
+                local known = e.c.recipes and e.c.recipes[e.p.name]
+                if not known then return end
+                local n = 0
+                for _ in pairs(known) do n = n + 1 end
+                GameTooltip:SetText("Click to list " .. e.c.name .. "'s " .. n .. " " .. e.p.name .. " recipes", 1, 1, 1)
+            elseif e.recipe.item then
+                GameTooltip:SetItemByID(e.recipe.item)
+            elseif e.id then
+                -- Enchants make no item; a recipe ID is the spell that casts it
+                GameTooltip:SetSpellByID(e.id)
+            else
+                GameTooltip:SetText(e.recipe.name or "?")
+            end
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", GameTooltip_Hide)
+        row:SetScript("OnClick", function(self)
+            local e = self.item
+            if not e or e.recipe or not (e.c.recipes and e.c.recipes[e.p.name]) then return end
+            view.openProf = { key = e.c.key, prof = e.p.name }
+            view.search:SetText("")  -- refreshes
+            GameTooltip_Hide()
+        end)
     end, function(row, e)
         if e.recipe then
             -- A recipe match: what it makes, and who knows it
@@ -487,9 +518,43 @@ local function BuildProfessions(view)
     view.list:SetPoint("TOPLEFT", 0, -34)
     view.list:SetPoint("BOTTOMRIGHT")
 
+    -- Every character who knows a recipe, for the "who else" column
+    local function Knowers(id, prof)
+        local list = {}
+        for _, c in pairs(ns.db.chars) do
+            if c.recipes and c.recipes[prof] and c.recipes[prof][id] then table.insert(list, c) end
+        end
+        table.sort(list, function(a, b) return a.name < b.name end)
+        return list
+    end
+
     function view:Refresh()
         local query = (self.query or ""):lower()
         local rows = {}
+        local open = self.openProf and ns.db.chars[self.openProf.key]
+        local known = open and open.recipes and open.recipes[self.openProf.prof]
+        if not known then self.openProf = false end
+        self.back:SetShown(known ~= nil)
+        if known then
+            -- One character's recipes in one profession
+            self.back.text:SetText(open.name:upper() .. " · " .. self.openProf.prof:upper() .. "   ×")
+            self.back:SetWidth(self.back.text:GetStringWidth() + 16)
+            for id in pairs(known) do
+                local r = ns.db.recipes[id]
+                local name = r and r.name or ("recipe " .. id)
+                if query == "" or name:lower():find(query, 1, true) then
+                    table.insert(rows, { id = id, recipe = r or { name = name }, prof = self.openProf.prof,
+                                         knowers = Knowers(id, self.openProf.prof) })
+                end
+            end
+            table.sort(rows, function(a, b) return (a.recipe.name or "") < (b.recipe.name or "") end)
+            self.hint:SetShown(#rows == 0)
+            self.hint:SetText("No recipe matches \"" .. (self.query or "") .. "\".")
+            self.list:SetData(rows)
+            SetFooter(#rows .. " " .. self.openProf.prof .. " recipe" .. (#rows == 1 and "" or "s") .. " on " .. open.name
+                .. "   ·   × on the chip goes back")
+            return
+        end
         if query == "" then
             local chars = ns:Characters()
             table.sort(chars, function(a, b) return a.name < b.name end)
@@ -499,7 +564,7 @@ local function BuildProfessions(view)
             self.hint:SetShown(#rows == 0)
             self.hint:SetText("No professions recorded yet. Log in on each character once.")
             self.list:SetData(rows)
-            SetFooter(#rows .. " professions   ·   type to find who can make something")
+            SetFooter(#rows .. " professions   ·   click one to list its recipes   ·   type to find who can make something")
             return
         end
 
@@ -511,7 +576,7 @@ local function BuildProfessions(view)
                     local r = ns.db.recipes[id]
                     if r and r.name and r.name:lower():find(query, 1, true) then
                         local e = found[id]
-                        if not e then e = { recipe = r, prof = prof, knowers = {} }; found[id] = e end
+                        if not e then e = { id = id, recipe = r, prof = prof, knowers = {} }; found[id] = e end
                         table.insert(e.knowers, c)
                     end
                 end

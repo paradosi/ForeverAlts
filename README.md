@@ -17,8 +17,8 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   The footer totals your gold and played time across every character.
 - **Items**: one search box covers every character's bags, bank, gear and mail, plus the account bank. Each result shows
   who has how many. Click a character on the Characters tab to browse everything they carry.
-- **Professions**: every character's professions with skill bars and how many recipes they know. Type in the search
-  box to find which of your characters can make something.
+- **Professions**: every character's professions with skill bars and how many recipes they know. Click one to list
+  that character's recipes (search narrows the list). Type in the search box to find which of your characters can make something.
 - **Reputation**: every faction any of your characters has met, grouped like the game's reputation panel, with each
   character's standing (coloured Hated to Exalted, with progress) and a bar for the best of them. Hover a faction
   for exact numbers.
@@ -76,6 +76,9 @@ Hovering a row shows the item's tooltip; Shift-click links it in chat.
 
 **"Who can make Bolt of Linen Cloth?"** Type `/alts profs bolt`. Each matching recipe lists the characters who know it.
 The same answer shows up on the item's own tooltip as *Made by Aelin (Tailoring)*.
+
+**"What enchants does my enchanter know?"** Click their Enchanting row on the Professions tab. Every recipe is
+listed with the other characters who know it; hover one to see the enchant. Click the chip beside the search box to go back.
 
 **"What's on my banker alt?"** Click their row on the Characters tab. The Items tab opens filtered to that character
 and lists everything they hold. The filter stays on when you switch to the Reputation tab, which then shows only their
