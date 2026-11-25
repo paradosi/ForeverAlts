@@ -16,6 +16,9 @@
 - **Reputation**: a new tab listing every faction your characters have met, grouped as in the game's
   reputation panel, with each character's standing and the best one's progress bar. Search by faction name;
   hover for exact numbers. Recorded at login and whenever reputation changes.
+- **Lockouts**: a new tab with every raid your characters are saved to: bosses down, when each raid resets,
+  and the bosses still up when you hover a character. Lockouts end on their own at the reset. Recorded at
+  login and after each boss kill. The Characters tooltip lists what a character is saved to.
 - Clicking a character filters both Items and Reputation to them, until you clear the *ONLY …* chip.
   Right-click a character for *Show reputation*.
 - Click a profession on the Professions tab to list that character's recipes, with who else knows each one.

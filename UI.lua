@@ -1,4 +1,4 @@
----- UI — the window: Characters, Items and Professions views
+---- UI — the window: Characters, Items, Professions, Reputation and Lockouts views
 
 local _, ns = ...
 local T = ns.T
@@ -180,6 +180,14 @@ local function BuildCharacters(view)
                 end
             else
                 GameTooltip:AddLine("Mailbox not recorded yet: open a mailbox on this character.", 0.953, 0.663, 0.510, true)
+            end
+            if c.lockoutsSeen then
+                local locks = ns.Lockouts(c)
+                if #locks > 0 then
+                    local names = {}
+                    for _, l in ipairs(locks) do names[#names + 1] = l.name end
+                    GameTooltip:AddDoubleLine("Saved to", table.concat(names, ", "), 0.588, 0.616, 0.702, 1, 1, 1)
+                end
             end
             GameTooltip:AddLine("Click to browse items · Right-click for more", 0.890, 0.714, 0.392)
             GameTooltip:Show()
@@ -733,6 +741,191 @@ local function BuildReputation(view)
     end
 end
 
+---- Lockouts -------------------------------------------------------------------
+
+-- A grid: characters down the side, every instance ever seen across the top. A cell
+-- is the character's progress in that instance's current lockout, or a dash when free.
+
+local LOCK_NAME_W, LOCK_COL_MIN = 200, 96
+local KILLED, ALIVE = { 0.886, 0.369, 0.369 }, { 0.533, 0.812, 0.490 }
+
+local function LockText(l)
+    if not l then return MUTED .. "—|r" end
+    if (l.total or 0) == 0 then return "saved" end
+    local full = l.done >= l.total
+    return (full and GOLD or "") .. l.done .. "/" .. l.total .. (full and "|r" or "")
+end
+
+local function BuildLockouts(view)
+    view.heads, view.cols, view.width = {}, {}, W - PAD * 2
+
+    local nameHead = T.Text(view, T.display, 10, C.muted)
+    nameHead:SetPoint("TOPLEFT", 12, -12)
+    nameHead:SetText("CHARACTER")
+    local line = T.Line(view, C.border)
+    line:SetPoint("TOPLEFT", 0, -34); line:SetPoint("TOPRIGHT", 0, -34)
+
+    view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
+    view.hint:SetPoint("TOPLEFT", PAD, -120)
+    view.hint:SetPoint("TOPRIGHT", -PAD, -120)
+    view.hint:SetWordWrap(true)
+
+    -- Column headers are made as instances appear: the name, and when it resets
+    local function Head(i)
+        local h = view.heads[i]
+        if h then return h end
+        h = CreateFrame("Button", nil, view)
+        h:SetHeight(32)
+        h.name = T.Text(h, T.display, 10, C.muted, "CENTER")
+        h.name:SetPoint("TOPLEFT", 2, -3); h.name:SetPoint("TOPRIGHT", -2, -3)
+        h.name:SetWordWrap(false)
+        h.reset = T.Text(h, T.mono, 9, C.muted, "CENTER")
+        h.reset:SetPoint("BOTTOMLEFT", 2, 3); h.reset:SetPoint("BOTTOMRIGHT", -2, 3)
+        h:SetScript("OnEnter", function(self)
+            local col = self.col
+            if not col then return end
+            GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
+            GameTooltip:AddLine(col.name)
+            local info = ns.db.instances[col.name] or {}
+            local what = {}
+            if info.total and info.total > 0 then what[#what + 1] = info.total .. " bosses" end
+            if info.players and info.players > 0 then what[#what + 1] = info.players .. " players" end
+            if #what > 0 then GameTooltip:AddLine(table.concat(what, " · "), 0.588, 0.616, 0.702) end
+            if col.reset then
+                GameTooltip:AddDoubleLine("Resets in", ns.Duration(col.reset - time()), 0.588, 0.616, 0.702, 1, 1, 1)
+            end
+            GameTooltip:AddDoubleLine("Saved", col.saved .. " character" .. (col.saved == 1 and "" or "s"),
+                0.588, 0.616, 0.702, 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        h:SetScript("OnLeave", GameTooltip_Hide)
+        view.heads[i] = h
+        return h
+    end
+
+    view.list = ns.CreateList(view, 26, function(row)
+        row.name = T.Text(row, T.display, 12, C.primary)
+        row.name:SetPoint("LEFT", 12, 0)
+        row.name:SetWidth(LOCK_NAME_W - 18)
+        row.cells = {}
+        row:SetScript("OnEnter", function(self)
+            local c = self.item
+            if not c then return end
+            GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 12, 0)
+            GameTooltip:AddLine(ns.ColorName(c))
+            if not c.lockoutsSeen then
+                GameTooltip:AddLine("Lockouts not recorded yet: log in on this character.", 0.953, 0.663, 0.510, true)
+            else
+                local list = ns.Lockouts(c)
+                if #list == 0 then GameTooltip:AddLine("Not saved to anything.", 0.588, 0.616, 0.702) end
+                for _, l in ipairs(list) do
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddDoubleLine(l.name, LockText(l) .. MUTED .. "  resets in " .. ns.Duration(l.reset - time()) .. "|r",
+                        0.890, 0.714, 0.392, 1, 1, 1)
+                    for _, b in ipairs(l.bosses or {}) do
+                        local col = b.killed and KILLED or ALIVE
+                        GameTooltip:AddDoubleLine("   " .. b.name, b.killed and "defeated" or "available",
+                            0.761, 0.784, 0.855, col[1], col[2], col[3])
+                    end
+                end
+                GameTooltip:AddLine(" ")
+                GameTooltip:AddDoubleLine("Recorded", ns.Ago(c.lockoutsSeen), 0.588, 0.616, 0.702, 1, 1, 1)
+            end
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", GameTooltip_Hide)
+    end, function(row, c)
+        row.name:SetText(ns.ColorName(c) .. MUTED .. "  " .. (c.level or "?") .. "|r")
+        for i, col in ipairs(view.cols) do
+            local cell = row.cells[i]
+            if not cell then
+                cell = T.Text(row, T.mono, 11, C.primary, "CENTER")
+                row.cells[i] = cell
+            end
+            cell:ClearAllPoints()
+            cell:SetPoint("LEFT", col.x, 0)
+            cell:SetWidth(col.w)
+            cell:SetText(c.lockoutsSeen and LockText(ns.Lockout(c, col.name)) or (MUTED .. "?|r"))
+            cell:Show()
+        end
+        for i = #view.cols + 1, #row.cells do row.cells[i]:Hide() end
+    end)
+    view.list:SetPoint("TOPLEFT", 0, -38)
+    view.list:SetPoint("BOTTOMRIGHT")
+
+    -- Share the width past the name column among the instances
+    function view:Place()
+        local n = #self.cols
+        local w = n > 0 and math.max(LOCK_COL_MIN, math.floor((self.width - LOCK_NAME_W - 8) / n)) or 0
+        for i, col in ipairs(self.cols) do
+            col.x, col.w = LOCK_NAME_W + (i - 1) * w, w
+            local h = Head(i)
+            h:ClearAllPoints()
+            h:SetPoint("TOPLEFT", col.x, 0)
+            h:SetWidth(w)
+            h.col = col
+            h.name:SetText(col.name:upper())
+            h.reset:SetText(col.reset and ("resets " .. ns.Duration(col.reset - time())) or "")
+            h:Show()
+        end
+        for i = n + 1, #self.heads do self.heads[i]:Hide() end
+        self.list:Render()
+    end
+    view:SetScript("OnSizeChanged", function(self, w) self.width = w; self:Place() end)
+
+    function view:Refresh()
+        local chars = ns:Characters()
+        local names = {}
+        for name in pairs(ns.db.instances) do names[name] = true end
+        for _, c in ipairs(chars) do
+            for name in pairs(c.lockouts or {}) do names[name] = true end
+        end
+        local cols, now = {}, time()
+        for name in pairs(names) do
+            local col = { name = name, saved = 0 }
+            for _, c in ipairs(chars) do
+                local l = ns.Lockout(c, name)
+                if l then
+                    col.saved = col.saved + 1
+                    if not col.reset or l.reset < col.reset then col.reset = l.reset end
+                end
+            end
+            cols[#cols + 1] = col
+        end
+        table.sort(cols, function(a, b) return a.name < b.name end)
+        self.cols = cols
+
+        local count, saved, recorded, soonest = {}, 0, 0, nil
+        for _, c in ipairs(chars) do
+            local list = ns.Lockouts(c)
+            count[c] = #list
+            if #list > 0 then saved = saved + 1 end
+            if c.lockoutsSeen then recorded = recorded + 1 end
+            for _, l in ipairs(list) do
+                if l.reset > now and (not soonest or l.reset < soonest) then soonest = l.reset end
+            end
+        end
+        table.sort(chars, function(a, b)
+            if count[a] ~= count[b] then return count[a] > count[b] end
+            if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+            return a.name < b.name
+        end)
+
+        self.hint:SetShown(#cols == 0)
+        self.hint:SetText("No lockouts recorded yet. They're read when you log in on a character, and again after each boss kill.")
+        self.list:SetData(#cols > 0 and chars or {}, true)
+        self:Place()
+        local foot = saved .. " of " .. #chars .. " character" .. (#chars == 1 and "" or "s") .. " saved"
+        if soonest then foot = foot .. "   ·   next reset in " .. ns.Duration(soonest - now) end
+        if recorded < #chars then
+            foot = foot .. "   ·   " .. (#chars - recorded) .. " not recorded yet: log in on them"
+        else
+            foot = foot .. "   ·   hover a character for bosses"
+        end
+        SetFooter(foot)
+    end
+end
+
 ---- The window -----------------------------------------------------------------
 
 local TABS_DEF = {
@@ -740,6 +933,7 @@ local TABS_DEF = {
     { key = "items", label = "ITEMS",       build = BuildItems },
     { key = "profs", label = "PROFESSIONS", build = BuildProfessions },
     { key = "reps",  label = "REPUTATION",  build = BuildReputation },
+    { key = "locks", label = "LOCKOUTS",    build = BuildLockouts },
 }
 
 local function Select(key)
@@ -869,15 +1063,15 @@ local function Build()
         if current then views[current]:Refresh() end
     end)
     frame:SetScript("OnHide", function() PlaySound(SOUNDKIT.IG_CHARACTER_INFO_CLOSE) end)
-    -- Played time and "seen" tick while the window is open
+    -- Played time, "seen" and reset countdowns tick while the window is open
     local elapsed = 0
     frame:SetScript("OnUpdate", function(_, dt)
         elapsed = elapsed + dt
-        if elapsed > 30 and current == "chars" then elapsed = 0; views.chars:Refresh() end
+        if elapsed > 30 and (current == "chars" or current == "locks") then elapsed = 0; views[current]:Refresh() end
     end)
 end
 
--- view: "chars" | "items" | "profs" | "reps"; query fills its search box; onlyKey (a character
+-- view: "chars" | "items" | "profs" | "reps" | "locks"; query fills its search box; onlyKey (a character
 -- key, or false to clear) filters Items and Reputation to one character, and stays set across tabs
 function ns.ShowUI(view, query, onlyKey)
     if not ns.me then return end

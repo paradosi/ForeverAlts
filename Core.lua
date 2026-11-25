@@ -185,6 +185,7 @@ ns:On("ADDON_LOADED", function(name)
     db.warband = db.warband or {}   -- the account bank, shared by every character: { items, seen }
     db.factions = db.factions or {} -- factionID -> { name, group, order }
     db.groups  = db.groups or {}    -- reputation header -> its place in the list
+    db.instances = db.instances or {} -- instance name -> { total, raid, players }: lockout columns
     -- Before 2026-11-25 an empty gear slot was saved as item 0 (Forever answers 0, not nil)
     for _, c in pairs(db.chars) do
         for _, t in pairs({ c.bags or false, c.bank or false, c.equipped or false, c.mail and c.mail.items or false }) do
@@ -216,6 +217,8 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.ShowUI("profs", rest)
     elseif cmd == "reps" or cmd == "rep" or cmd == "reputation" then
         ns.ShowUI("reps", rest)
+    elseif cmd == "locks" or cmd == "lockouts" or cmd == "raids" then
+        ns.ShowUI("locks")
     elseif cmd == "options" or cmd == "config" then
         ns.OpenOptions()
     elseif cmd == "reset" then
@@ -224,6 +227,6 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.Say("window back to its usual size, in the middle.")
     else
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts options · /alts reset (window size and position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts options · /alts reset (window size and position)")
     end
 end

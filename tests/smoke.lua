@@ -201,6 +201,19 @@ C_Reputation = {
         for _ = 1, #hidden do table.remove(factionList, i + 1) end
     end,
 }
+-- Lockouts: Molten Core, 3 of 10 bosses down, resets in 4 days; an Onyxia lockout
+-- the server still lists but no longer holds (locked false)
+local askedRaids = 0
+function RequestRaidInfo() askedRaids = askedRaids + 1 end
+local saved = {
+    { "Molten Core", 7001, 4 * 86400, 9, true, false, 0, true, 40, "40 Player", 10, 3 },
+    { "Onyxia's Lair", 7002, 0, 9, false, false, 0, true, 40, "40 Player", 1, 1 },
+}
+function GetNumSavedInstances() return #saved end
+function GetSavedInstanceInfo(i) return unpack(saved[i]) end
+function GetSavedInstanceEncounterInfo(i, e)
+    if i == 1 then return "Boss " .. e, 0, e <= 3 end
+end
 local hooks = {}
 function hooksecurefunc(name, fn) hooks[name] = fn end
 function GetInboxNumItems() return #inbox, 53 end
@@ -279,6 +292,19 @@ factionList[2].currentStanding = 13000
 Fire("UPDATE_FACTION")
 RunTimers()
 check(me.reps[72].cur == 4000 and expands == 2, "reputation: a rep gain rescans")
+
+-- Lockouts: asked for at login, read only once the server answers
+check(askedRaids == 1 and me.lockouts == nil, "lockouts: asked for, not read before the answer")
+Fire("UPDATE_INSTANCE_INFO")
+RunTimers()
+local mc = me.lockouts and me.lockouts["Molten Core"]
+check(mc and mc.done == 3 and mc.total == 10 and mc.reset == now + 4 * 86400, "lockouts: Molten Core 3/10, reset time")
+check(mc and #mc.bosses == 10 and mc.bosses[3].killed and not mc.bosses[4].killed, "lockouts: bosses killed and alive")
+check(me.lockouts["Onyxia's Lair"] == nil and #ns.Lockouts(me) == 1, "lockouts: a lapsed lockout is not recorded")
+check(db.instances["Molten Core"].total == 10, "lockouts: instance remembered for its column")
+Fire("BOSS_KILL", 663, "Lucifron")
+RunTimers()
+check(askedRaids == 2, "lockouts: a boss kill asks again")
 
 -- Mail: nothing is read until the server answers, then the inbox is counted
 Fire("MAIL_SHOW")
@@ -365,6 +391,12 @@ end
 check(profRow ~= nil, "professions: a Tailoring row to click")
 if profRow then profRow.scripts.OnClick(profRow, "LeftButton") end
 check(ForeverAltsFrame.footer.text:find("1 Tailoring recipe on Aelin Galathynius", 1, true) ~= nil, "professions: click lists the recipes")
+SlashCmdList.FOREVERALTS("locks")
+check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
+now = now + 5 * 86400
+ns.ShowUI("locks")
+check(ForeverAltsFrame.footer.text:find("0 of 2 characters saved", 1, true) ~= nil, "lockouts: a lockout past its reset is over")
+now = now - 5 * 86400
 ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")
 ns.ShowUI("chars")
 RunTimers()
