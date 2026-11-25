@@ -23,6 +23,19 @@ local function Create()
         Settings.CreateCheckbox(category, setting, tooltip)
     end
 
+    layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Window"))
+    do
+        local setting = Settings.RegisterProxySetting(category, "FALTS_scale", Settings.VarType.Number, "Window scale",
+            ns.defaults.scale,
+            function() return s.scale end,
+            function(value) s.scale = value; ns.ApplyScale() end)
+        local options = Settings.CreateSliderOptions(ns.SCALE_MIN, ns.SCALE_MAX, 5)
+        options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, function(value) return value .. "%" end)
+        Settings.CreateSlider(category, setting, options,
+            "Makes the whole Forever Alts window larger or smaller: text, icons and spacing together, so nothing gets cut off. "
+            .. "Also /alts scale 120. /alts reset goes back to 100%.")
+    end
+
     layout:AddInitializer(CreateSettingsListSectionHeaderInitializer("Item tooltips"))
     Checkbox("tooltip", "Show counts on item tooltips",
         "Every character holding the item, with how many are in their bags, bank and gear, plus the account bank.")

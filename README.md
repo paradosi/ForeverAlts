@@ -130,7 +130,8 @@ stays on when you switch to the Reputation tab, which then shows only their stan
 | `/alts legacy` | Open the Talents tab on the Legacy trees |
 | `/alts locks` | Open the Lockouts tab (also `/alts lockouts`, `/alts raids`) |
 | `/alts options` | Open the options panel |
-| `/alts reset` | Put the window back to its usual size, in the middle of the screen |
+| `/alts scale <80-150>` | Make the whole window larger or smaller, in steps of 5%; with no number, says the current scale |
+| `/alts reset` | Put the window back to its usual size and 100% scale, in the middle of the screen |
 | `/alts help` | List the commands |
 
 To forget a character (deleted, or transferred away), right-click their row and choose **Forget this character**.
@@ -141,6 +142,7 @@ Esc → Options → AddOns → **Forever Alts**, or `/alts options`. All setting
 
 | Setting | Default | Effect |
 |---|---|---|
+| Window scale | 100% | The whole window larger or smaller (80–150%): text, icons and spacing together, so nothing gets cut off |
 | Show counts on item tooltips | On | The per-character lines on item tooltips |
 | Include the character you're playing | On | Off lists only your other characters |
 | Only characters of your faction | Off | Counts and *Made by* list only Horde, or only Alliance, as you're playing |

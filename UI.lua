@@ -178,8 +178,9 @@ function ns.Menu(entries)
     end
     for i = #entries + 1, #menu.rows do menu.rows[i]:Hide(); menu.rows[i].func = false end
     menu:SetSize(width, -y + 4)
+    menu:SetScale(ns.WindowScale())
     local x, cy = GetCursorPosition()
-    local scale = UIParent:GetEffectiveScale()
+    local scale = menu:GetEffectiveScale()
     menu:ClearAllPoints()
     menu:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / scale + 2, cy / scale - 2)
     menu.closeArmed = false
@@ -2497,9 +2498,33 @@ end
 
 function ns.ResetPosition()
     if not frame then return end
+    frame:SetScale(1)
     frame:ClearAllPoints()
     frame:SetPoint("CENTER")
     frame:SetSize(W, H)
+end
+
+---- Scale: the whole window, text, icons and gaps together (Options, or /alts scale 80-150).
+---- The window keeps its centre on screen as it grows or shrinks.
+
+ns.SCALE_MIN, ns.SCALE_MAX = 80, 150
+
+function ns.WindowScale()
+    local pct = tonumber(ns.settings and ns.settings.scale) or 100
+    return math.max(ns.SCALE_MIN, math.min(ns.SCALE_MAX, pct)) / 100
+end
+
+function ns.ApplyScale()
+    if not frame then return end
+    local new, old = ns.WindowScale(), frame:GetScale() or 1
+    if math.abs(new - old) < 0.001 then return end
+    local cx, cy = frame:GetCenter()
+    frame:SetScale(new)
+    if cx and cy then
+        frame:ClearAllPoints()
+        frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * old / new, cy * old / new)
+        SavePosition()
+    end
 end
 
 local function Build()
@@ -2513,6 +2538,7 @@ local function Build()
     frame:SetToplevel(true)
     local p = ns.db.point
     if p then frame:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else frame:SetPoint("CENTER") end
+    frame:SetScale(ns.WindowScale())
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)

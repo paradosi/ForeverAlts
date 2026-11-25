@@ -15,6 +15,7 @@ ns.defaults = {
     mailWarn     = true,   -- at login, name characters whose mail is about to expire
     planRemind   = true,   -- with talent points to spend, name the next one in the class's plan
     planGlow     = true,   -- the next planned talent glows in the game's talent window
+    scale        = 100,    -- the window's size in percent, 80-150: text, icons and gaps together
     sortKey      = "level",
     sortDesc     = true,
 }
@@ -234,12 +235,24 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.ShowTalents(nil, "legacy")
     elseif cmd == "options" or cmd == "config" then
         ns.OpenOptions()
+    elseif cmd == "scale" or cmd == "size" then
+        local pct = tonumber(rest)
+        if not pct then
+            ns.Say("window scale is " .. math.floor(ns.WindowScale() * 100 + 0.5) .. "%. /alts scale "
+                .. ns.SCALE_MIN .. "-" .. ns.SCALE_MAX .. " changes it.")
+            return
+        end
+        pct = math.max(ns.SCALE_MIN, math.min(ns.SCALE_MAX, math.floor(pct / 5 + 0.5) * 5))
+        db.settings.scale = pct
+        ns.ApplyScale()
+        ns.Say("window scale " .. pct .. "%.")
     elseif cmd == "reset" then
         db.point, db.size = nil, nil
+        db.settings.scale = 100
         if ns.ResetPosition then ns.ResetPosition() end
-        ns.Say("window back to its usual size, in the middle.")
+        ns.Say("window back to its usual size and scale, in the middle.")
     else
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts armory · /alts talents · /alts plan · /alts legacy · /alts options · /alts reset (window size and position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts armory · /alts talents · /alts plan · /alts legacy · /alts options · /alts scale <80-150> · /alts reset (window size, scale and position)")
     end
 end

@@ -197,11 +197,16 @@ local tooltipCalls = {}
 TooltipDataProcessor = { AddTooltipPostCall = function(_, fn) tooltipCalls[#tooltipCalls + 1] = fn end }
 MenuUtil = { CreateContextMenu = function() end }
 function StaticPopup_Show() end
+proxies = {}
+MinimalSliderWithSteppersMixin = { Label = { Right = 1 } }
 local category = { GetID = function() return 1 end }
 Settings = {
     RegisterVerticalLayoutCategory = function() return category, { AddInitializer = function() end } end,
-    RegisterProxySetting = function() return {} end,
+    RegisterProxySetting = function(_, name, _, _, _, get, set) proxies[name] = { get = get, set = set }; return {} end,
     CreateCheckbox = function() end,
+    CreateSlider = function() end,
+    CreateSliderOptions = function() return { SetLabelFormatter = function() end } end,
+    VarType = { Number = "number", Boolean = "boolean" },
     RegisterAddOnCategory = function() end,
     OpenToCategory = function() end,
 }
@@ -747,6 +752,27 @@ do
         "menu: a click acts (Borin's items) and closes it")
     ns.ShowUI("items", "", false)
     ns.ShowUI("chars")
+end
+
+-- Scale: the slider and /alts scale resize the window around its centre; reset goes back
+do
+    local f = ForeverAltsFrame
+    local sc, cx, cy = f:GetScale() or 1, 800, 450
+    f.SetScale = function(_, v) sc = v end
+    f.GetScale = function() return sc end
+    f.GetCenter = function() return cx, cy end
+    local placed
+    f.SetPoint = function(_, ...) placed = { ... } end
+    f.GetPoint = function() return placed[1], placed[2], placed[3], placed[4], placed[5] end
+    check(proxies.FALTS_scale and proxies.FALTS_scale.get() == 100, "scale: the option is there, at 100%")
+    proxies.FALTS_scale.set(125)
+    check(sc == 1.25 and placed[1] == "CENTER" and math.abs(placed[4] - 640) < 0.01, "scale: the slider scales the window, centre kept")
+    SlashCmdList.FOREVERALTS("scale 300")
+    check(ns.settings.scale == 150 and sc == 1.5, "scale: /alts scale is held to 150%")
+    SlashCmdList.FOREVERALTS("scale 92")
+    check(ns.settings.scale == 90, "scale: steps of 5")
+    SlashCmdList.FOREVERALTS("reset")
+    check(ns.settings.scale == 100 and sc == 1, "scale: /alts reset goes back to 100%")
 end
 
 -- Reputation: one character from the dropdown gets the game-window list with exact numbers
