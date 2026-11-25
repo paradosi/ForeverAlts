@@ -1568,13 +1568,13 @@ local function BuildTalents(view)
                 box:Hide()
                 self:Refresh()
             end
-            function list:Fill()
-                local chars = drop.chars
-                local shown = math.min(#chars, MAXROWS)
-                self.offset = math.max(0, math.min(self.offset, #chars - shown))
+            function list.Fill(l)
+                local all = drop.chars
+                local shown = math.min(#all, MAXROWS)
+                l.offset = math.max(0, math.min(l.offset, #all - shown))
                 self:SetSize(math.max(drop:GetWidth(), 240), shown * ROW + 4)
                 for i = 1, shown do
-                    local r = self.rows[i]
+                    local r = l.rows[i]
                     if not r then
                         r = CreateFrame("Button", nil, self)
                         r:SetHeight(ROW)
@@ -1592,19 +1592,19 @@ local function BuildTalents(view)
                         r:SetScript("OnEnter", function(b) b.hover:Show() end)
                         r:SetScript("OnLeave", function(b) b.hover:Hide() end)
                         r:SetScript("OnClick", function(b) if b.ch then Pick(b.ch) end end)
-                        self.rows[i] = r
+                        l.rows[i] = r
                     end
-                    local ch = chars[i + self.offset]
+                    local ch = all[i + l.offset]
                     r.ch = ch
                     r.name:SetText(ns.ColorName(ch) .. (ch == ns.me and "  |cff969db3· you|r" or ""))
                     r.info:SetText((ch.level or "?") .. " " .. (LOCALIZED_CLASS_NAMES_MALE[ch.class] or ch.class or ""))
-                    local on = ch.key == self.owner.pick
+                    local on = ch.key == l.owner.pick
                     r.mark:SetShown(on)
                     local col = on and C.accent or C.muted
                     r.info:SetTextColor(col[1], col[2], col[3])
                     r:Show()
                 end
-                for i = shown + 1, #self.rows do self.rows[i]:Hide(); self.rows[i].ch = false end
+                for i = shown + 1, #l.rows do l.rows[i]:Hide(); l.rows[i].ch = false end
             end
             list.owner = self
             list:SetScript("OnMouseWheel", function(l, delta) l.offset = l.offset - delta; l:Fill() end)
