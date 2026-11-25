@@ -19,6 +19,11 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   who has how many. Pick a character from the dropdown (or click them on the Characters tab) for a grid of what they hold,
   a section each for bags, bank, mail and gear, sorted by quality: each heading says how fresh it is, or what to open
   to record it. The search box filters the grid.
+- **Armory**: one character's gear on a paperdoll like the Armory site: slots down both sides with each item's name
+  and item level, weapons along the bottom, and the character sheet's stats (attributes, defense, offense,
+  resistances) in a panel. The character you're on is shown as a live model you can turn by dragging; addons can't
+  rebuild another character's looks, so an alt shows their race and class crest. Stats are recorded at login and
+  whenever they change. `/alts armory`, or right-click a character → *Show gear (Armory)*.
 - **Professions**: every character's professions with skill bars and how many recipes they know. Click one to list
   that character's recipes (search narrows the list). Type in the search box to find which of your characters can make something.
 - **Reputation**: every faction any of your characters has met, grouped like the game's reputation panel, with each
@@ -117,6 +122,7 @@ stays on when you switch to the Reputation tab, which then shows only their stan
 | `/alts reps <text>` | Open the Reputation tab searching factions for `<text>` |
 | `/alts talents` | Open the Talents tab (also `/alts spec`) |
 | `/alts plan` | Open the talent planner |
+| `/alts armory` | Open the Armory tab: gear, model and stats |
 | `/alts legacy` | Open the Talents tab on the Legacy trees |
 | `/alts locks` | Open the Lockouts tab (also `/alts lockouts`, `/alts raids`) |
 | `/alts options` | Open the options panel |

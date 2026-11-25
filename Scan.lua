@@ -185,6 +185,9 @@ ns:On("PLAYER_LOGIN", function()
     local _, class = UnitClass("player")
     me.class   = Plain(class) or me.class
     me.race    = Plain((UnitRace("player"))) or me.race
+    local _, raceFile = UnitRace("player")
+    me.raceFile = Plain(raceFile) or me.raceFile          -- "Orc", "Scourge": names the race crest
+    me.sex     = Plain(UnitSex("player")) or me.sex       -- 2 male, 3 female
     me.faction = Plain((UnitFactionGroup("player"))) or me.faction
     -- The ruleset (Normal, PvP, Roleplay…). Forever has no realm names, but a character's
     -- GUID still carries its home server: "Player-<server>-<id>", the same for every
@@ -197,6 +200,7 @@ ns:On("PLAYER_LOGIN", function()
     ScanSummary()
     ScanBags()
     ScanGear()
+    ns.ScanStats()
     ScanSkills()
     ns.craftIndex = nil
 
@@ -208,13 +212,60 @@ ns:On("PLAYER_LOGIN", function()
     end
 end)
 
+---- Stats for the Armory tab: what the character sheet shows, as of the last change.
+---- Read out of combat only (in combat they're busy, and some may be secrets).
+
+local function Num(v) if type(v) == "number" and (not canaccessvalue or canaccessvalue(v)) then return v end end
+
+function ns.ScanStats()
+    if not me then return end
+    if InCombatLockdown() then ns:Debounce("statsAfterCombat", 2, ns.ScanStats); return end
+    local st = {}
+    for i = 1, 5 do
+        local _, effective = UnitStat("player", i)
+        st[i] = Num(effective)
+    end
+    local _, armor = UnitArmor("player")
+    st.armor = Num(armor)
+    st.hp, st.power = Num(UnitHealthMax("player")), Num(UnitPowerMax("player"))
+    local _, powerToken = UnitPowerType("player")
+    st.powerType = type(powerToken) == "string" and (not canaccessvalue or canaccessvalue(powerToken)) and powerToken or nil
+    local base, pos, neg = UnitAttackPower("player")
+    if Num(base) then st.ap = base + (Num(pos) or 0) + (Num(neg) or 0) end
+    base, pos, neg = UnitRangedAttackPower("player")
+    if Num(base) then st.rap = base + (Num(pos) or 0) + (Num(neg) or 0) end
+    st.crit, st.rcrit = Num(GetCritChance()), Num(GetRangedCritChance())
+    st.scrit = Num(GetSpellCritChance(2))          -- 2: fire, as good as any school in Vanilla
+    st.dodge, st.parry, st.block = Num(GetDodgeChance()), Num(GetParryChance()), Num(GetBlockChance())
+    st.spell, st.heal = Num(GetSpellBonusDamage(2)), Num(GetSpellBonusHealing())
+    st.res = {}
+    for school = 2, 6 do                           -- fire, nature, frost, shadow, arcane
+        local _, total = UnitResistance("player", school)
+        st.res[school] = Num(total)
+    end
+    st.seen = time()
+    me.stats = st
+    local guild, rank = GetGuildInfo("player")
+    me.guild = type(guild) == "string" and (not canaccessvalue or canaccessvalue(guild)) and guild or nil
+    me.guildRank = me.guild and type(rank) == "string" and rank or nil
+end
+
+local function StatsSoon() if me then ns:Debounce("stats", 1, ns.ScanStats) end end
+ns:On("UNIT_STATS", function(unit) if unit == "player" then StatsSoon() end end)
+ns:On("UNIT_ATTACK_POWER", function(unit) if unit == "player" then StatsSoon() end end)
+ns:On("UNIT_RESISTANCES", function(unit) if unit == "player" then StatsSoon() end end)
+ns:On("UNIT_MAXHEALTH", function(unit) if unit == "player" then StatsSoon() end end)
+ns:On("PLAYER_GUILD_UPDATE", StatsSoon)
+
 ns:On("PLAYER_MONEY", function() if me then me.money = GetMoney(); Refresh() end end)
 ns:On("PLAYER_XP_UPDATE", function() if me then ScanSummary() end end)
 ns:On("UPDATE_EXHAUSTION", function() if me then me.rested = GetXPExhaustion() or 0 end end)
 ns:On("PLAYER_UPDATE_RESTING", function() if me then me.resting = IsResting() end end)
 ns:On("PLAYER_LEVEL_UP", function() if me then C_Timer.After(1, ScanSummary) end end)
 ns:On("ZONE_CHANGED_NEW_AREA", function() if me then me.zone = GetRealZoneText() end end)
-ns:On("PLAYER_EQUIPMENT_CHANGED", function() if me then ns:Debounce("gear", 0.5, ScanGear) end end)
+ns:On("PLAYER_EQUIPMENT_CHANGED", function()
+    if me then ns:Debounce("gear", 0.5, ScanGear); StatsSoon() end
+end)
 ns:On("SKILL_LINES_CHANGED", function() if me then ns:Debounce("skills", 1, ScanSkills) end end)
 
 ns:On("BAG_UPDATE_DELAYED", function()

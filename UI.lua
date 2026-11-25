@@ -104,6 +104,7 @@ local function CharacterMenu(row)
         root:CreateTitle(c.realm ~= "" and (c.name .. " · " .. c.realm) or c.name)
         root:CreateButton("Browse items", function() ns.ShowUI("items", "", c.key) end)
         root:CreateButton("Show reputation", function() ns.ShowUI("reps", "", c.key) end)
+        root:CreateButton("Show gear (Armory)", function() ns.ShowArmory(c.key) end)
         root:CreateButton("Show talents", function() ns.ShowTalents(c.key, "class") end)
         if c.legacy then root:CreateButton("Show Legacy trees", function() ns.ShowTalents(c.key, "legacy") end) end
         root:CreateButton("Forget this character", function()
@@ -1989,6 +1990,321 @@ end
 
 ---- The window -----------------------------------------------------------------
 
+---- Armory: one character's gear on a paperdoll, the way the Armory site lays it out.
+---- Gear slots down both sides and weapons along the bottom; between them the live model
+---- for the character you're on (addons can't rebuild another character's looks), or the
+---- race and class crest for an alt; the character sheet's stats in a panel on the right.
+
+local SLOT_ART = "Interface\\PaperDoll\\UI-PaperDoll-Slot-"
+local LEFT_SLOTS = {
+    { 1, "Head", "Head" }, { 2, "Neck", "Neck" }, { 3, "Shoulder", "Shoulders" }, { 15, "Chest", "Back" },
+    { 5, "Chest", "Chest" }, { 4, "Shirt", "Shirt" }, { 19, "Tabard", "Tabard" }, { 9, "Wrists", "Wrists" },
+}
+local RIGHT_SLOTS = {
+    { 10, "Hands", "Hands" }, { 6, "Waist", "Waist" }, { 7, "Legs", "Legs" }, { 8, "Feet", "Feet" },
+    { 11, "Finger", "Ring" }, { 12, "Finger", "Ring" }, { 13, "Trinket", "Trinket" }, { 14, "Trinket", "Trinket" },
+}
+local WEAPON_SLOTS = { { 16, "MainHand", "Main hand" }, { 17, "SecondaryHand", "Off hand" }, { 18, "Ranged", "Ranged" }, { 0, "Ammo", "Ammo" } }
+local SLOT_SIZE, SLOT_STEP, SIDE_W, STATS_W = 40, 46, 236, 214
+
+local function BuildArmory(view)
+    view.pick = false
+    view.drop = ns.CharDropdown(view, function(entry)
+        view.pick = entry.key
+        view:Refresh()
+    end)
+    view.drop:SetPoint("TOPLEFT", 0, 0)
+    view.summary = T.Text(view, T.mono, 11, C.secondary, "RIGHT")
+    view.summary:SetPoint("TOPRIGHT", 0, -6)
+    view.summary:SetPoint("LEFT", view.drop, "RIGHT", 20, 0)
+
+    -- One gear slot: the icon (or the empty-slot art), the item's name and level beside it
+    local function Slot(def, side)
+        local b = CreateFrame("Button", nil, view)
+        b:SetSize(SLOT_SIZE, SLOT_SIZE)
+        b.slot, b.art, b.label, b.link = def[1], SLOT_ART .. def[2], def[3], false
+        local bg = b:CreateTexture(nil, "BACKGROUND"); T.Fill(bg, C.deep); bg:SetAllPoints()
+        b.icon = b:CreateTexture(nil, "ARTWORK")
+        b.icon:SetPoint("TOPLEFT", 1, -1); b.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.edges = {}
+        for _, e in ipairs({ { "TOPLEFT", "TOPRIGHT", false }, { "BOTTOMLEFT", "BOTTOMRIGHT", false },
+                             { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true } }) do
+            local t = b:CreateTexture(nil, "OVERLAY")
+            t:SetPoint(e[1]); t:SetPoint(e[2])
+            if e[3] then t:SetWidth(1) else t:SetHeight(1) end
+            b.edges[#b.edges + 1] = t
+        end
+        b.name, b.sub = false, false  -- the weapons have no labels: their tooltip says it
+        if side then
+            b.name = T.Text(view, T.display, 12, C.primary, side == "left" and "LEFT" or "RIGHT")
+            b.sub = T.Text(view, T.mono, 10, C.muted, side == "left" and "LEFT" or "RIGHT")
+            if side == "left" then
+                b.name:SetPoint("TOPLEFT", b, "TOPRIGHT", 10, -3)
+                b.sub:SetPoint("BOTTOMLEFT", b, "BOTTOMRIGHT", 10, 3)
+            else
+                b.name:SetPoint("TOPRIGHT", b, "TOPLEFT", -10, -3)
+                b.sub:SetPoint("BOTTOMRIGHT", b, "BOTTOMLEFT", -10, 3)
+            end
+            b.name:SetWidth(SIDE_W - SLOT_SIZE - 14)
+            b.sub:SetWidth(SIDE_W - SLOT_SIZE - 14)
+        end
+        b:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if self.link then GameTooltip:SetHyperlink(self.link)
+            elseif self.itemID then GameTooltip:SetItemByID(self.itemID)
+            else GameTooltip:AddLine(self.label, 0.588, 0.616, 0.702) end
+            GameTooltip:Show()
+        end)
+        b:SetScript("OnLeave", GameTooltip_Hide)
+        b:SetScript("OnClick", function(self) if self.link then HandleModifiedItemClick(self.link) end end)
+        b.itemID = false
+        b.hoverGlow = false
+        T.HoverGlow(b)
+        return b
+    end
+
+    view.slots = {}
+    for i, def in ipairs(LEFT_SLOTS) do
+        local b = Slot(def, "left")
+        b:SetPoint("TOPLEFT", 0, -40 - (i - 1) * SLOT_STEP)
+        view.slots[#view.slots + 1] = b
+    end
+    -- The stats panel on the far right, the right-hand slots just inside it
+    view.stats = CreateFrame("Frame", nil, view)
+    view.stats:SetPoint("TOPRIGHT", 0, -40)
+    view.stats:SetPoint("BOTTOMRIGHT", 0, 0)
+    view.stats:SetWidth(STATS_W)
+    local sbg = view.stats:CreateTexture(nil, "BACKGROUND"); T.Fill(sbg, C.raised); sbg:SetAllPoints()
+    T.Border(view.stats, C.divider)
+    view.stats.lines = {}
+    for i, def in ipairs(RIGHT_SLOTS) do
+        local b = Slot(def, "right")
+        b:SetPoint("TOPRIGHT", view.stats, "TOPLEFT", -16, -(i - 1) * SLOT_STEP)
+        view.slots[#view.slots + 1] = b
+    end
+
+    -- The middle: name and title on top, the model or crest, the weapons below
+    local mid = CreateFrame("Frame", nil, view)
+    mid:SetPoint("TOPLEFT", SIDE_W + 8, -40)
+    mid:SetPoint("BOTTOMRIGHT", view.stats, "BOTTOMLEFT", -(SIDE_W + 24), 0)
+    view.mid = mid
+    view.title = T.Text(mid, T.display, 20, C.primary, "CENTER")
+    view.title:SetPoint("TOPLEFT", 0, -2)
+    view.title:SetPoint("TOPRIGHT", 0, -2)
+    view.line2 = T.Text(mid, T.mono, 11, C.secondary, "CENTER")
+    view.line2:SetPoint("TOPLEFT", view.title, "BOTTOMLEFT", 0, -6)
+    view.line2:SetPoint("TOPRIGHT", view.title, "BOTTOMRIGHT", 0, -6)
+    view.line3 = T.Text(mid, T.mono, 11, C.accent, "CENTER")
+    view.line3:SetPoint("TOPLEFT", view.line2, "BOTTOMLEFT", 0, -4)
+    view.line3:SetPoint("TOPRIGHT", view.line2, "BOTTOMRIGHT", 0, -4)
+
+    view.weapons = {}
+    for i, def in ipairs(WEAPON_SLOTS) do
+        local b = Slot(def)
+        b:SetPoint("BOTTOM", mid, "BOTTOM", (i - 2.5) * SLOT_STEP, 6)
+        view.weapons[i] = b
+        view.slots[#view.slots + 1] = b
+    end
+
+    -- The live model: only ever the character you're logged in on
+    local model = CreateFrame("PlayerModel", nil, mid)
+    model:SetPoint("TOPLEFT", 0, -62)
+    model:SetPoint("BOTTOMRIGHT", 0, SLOT_SIZE + 16)
+    model:EnableMouse(true)
+    model.facing, model.dragX, model.loaded = 0, false, false
+    model:SetScript("OnMouseDown", function(self) self.dragX = (GetCursorPosition()) end)
+    model:SetScript("OnMouseUp", function(self) self.dragX = false end)
+    model:SetScript("OnUpdate", function(self)
+        if not self.dragX then return end
+        if not IsMouseButtonDown("LeftButton") then self.dragX = false; return end
+        local x = GetCursorPosition()
+        self.facing = self.facing + (x - self.dragX) * 0.012
+        self.dragX = x
+        self:SetFacing(self.facing)
+    end)
+    model:Hide()
+    view.model = model
+    view.modelHint = T.Text(mid, T.mono, 10, C.muted, "CENTER")
+    view.modelHint:SetPoint("BOTTOM", model, "BOTTOM", 0, 4)
+
+    -- An alt: their race crest, the class crest on its corner
+    view.crest = mid:CreateTexture(nil, "ARTWORK")
+    view.crest:SetSize(128, 128)
+    view.crest:SetPoint("CENTER", model, "CENTER", 0, 10)
+    view.classCrest = mid:CreateTexture(nil, "OVERLAY")
+    view.classCrest:SetSize(44, 44)
+    view.classCrest:SetPoint("CENTER", view.crest, "BOTTOMRIGHT", -14, 14)
+    view:HookScript("OnHide", function() model:ClearModel(); model.loaded = false end)
+    -- Gear or shape changed: load the model again next time it's drawn
+    ns:On("UNIT_MODEL_CHANGED", function(unit) if unit == "player" then model.loaded = false end end)
+    ns:On("PLAYER_EQUIPMENT_CHANGED", function() model.loaded = false end)
+
+    local function StatLine(i)
+        local l = view.stats.lines[i]
+        if l then return l end
+        l = {}
+        l.label = T.Text(view.stats, T.mono, 11, C.muted)
+        l.value = T.Text(view.stats, T.monoMedium, 11, C.primary, "RIGHT")
+        l.label:SetPoint("TOPLEFT", 12, -10 - (i - 1) * 17)
+        l.value:SetPoint("TOPRIGHT", -12, -10 - (i - 1) * 17)
+        view.stats.lines[i] = l
+        return l
+    end
+
+    local function Pct(v) return v and string.format("%.2f%%", v) or "—" end
+    local function N(v) return v and ns.Commas(v) or "—" end
+    local POWER = { MANA = "Mana", RAGE = "Rage", ENERGY = "Energy", FOCUS = "Focus" }
+
+    local function StatRows(c)
+        local st = c.stats
+        if not st then return nil end
+        local rows = {
+            { head = "ATTRIBUTES" },
+            { "Strength", N(st[1]) }, { "Agility", N(st[2]) }, { "Stamina", N(st[3]) },
+            { "Intellect", N(st[4]) }, { "Spirit", N(st[5]) },
+            { head = "DEFENSE" },
+            { "Health", N(st.hp) }, { "Armor", N(st.armor) },
+            { "Dodge", Pct(st.dodge) }, { "Parry", Pct(st.parry) }, { "Block", Pct(st.block) },
+            { head = "OFFENSE" },
+            { "Attack power", N(st.ap) }, { "Melee crit", Pct(st.crit) },
+            { "Ranged AP", N(st.rap) }, { "Ranged crit", Pct(st.rcrit) },
+            { "Spell damage", N(st.spell) }, { "Healing", N(st.heal) }, { "Spell crit", Pct(st.scrit) },
+        }
+        if st.power and st.powerType and POWER[st.powerType] then
+            table.insert(rows, 9, { POWER[st.powerType], N(st.power) })
+        end
+        local res = {}
+        for school, label in pairs({ [2] = "Fire", [3] = "Nature", [4] = "Frost", [5] = "Shadow", [6] = "Arcane" }) do
+            if st.res and (st.res[school] or 0) > 0 then res[#res + 1] = { school, label .. " resist", N(st.res[school]) } end
+        end
+        table.sort(res, function(a, b) return a[1] < b[1] end)
+        if #res > 0 then
+            rows[#rows + 1] = { head = "RESISTANCE" }
+            for _, r in ipairs(res) do rows[#rows + 1] = { r[2], r[3] } end
+        end
+        return rows
+    end
+
+    function view:Refresh()
+        local chars = ns:Characters()
+        table.sort(chars, function(a, b)
+            if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+            return a.name < b.name
+        end)
+        local c = self.pick and ns.db.chars[self.pick]
+        if not c then c = ns.me or chars[1]; self.pick = c and c.key or false end
+        self.drop:SetChoices(ns.CharChoices(chars), self.pick)
+        if not c then return end
+
+        -- Gear
+        local gear = c.gear or {}
+        for _, b in ipairs(self.slots) do
+            local v = gear[b.slot]
+            local link = type(v) == "string" and v or nil
+            local id = (type(v) == "number" and v) or (link and tonumber(link:match("item:(%d+)"))) or nil
+            b.link, b.itemID = link or false, id or false
+            local col = C.border
+            if id then
+                local name, quality, icon, known = ItemInfo(id)
+                b.link = b.link or known or false
+                b.icon:SetTexture(icon or 134400)
+                b.icon:SetDesaturated(false); b.icon:SetAlpha(1)
+                b.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+                local linkName = link and link:match("%[(.-)%]")
+                name = (linkName and linkName ~= "" and linkName) or name or ("item " .. id)
+                if (quality or 1) >= 2 then
+                    local r, g, bl = C_Item.GetItemQualityColor(quality)
+                    if type(r) == "number" then col = { r, g, bl, 0.9 } end
+                end
+                if b.name then
+                    b.name:SetText(QualityHex(quality) .. name .. "|r")
+                    local ilvl = b.link and C_Item.GetDetailedItemLevelInfo(b.link)
+                    b.sub:SetText(b.label .. (type(ilvl) == "number" and ilvl > 0 and ("  ·  ilvl " .. ilvl) or ""))
+                end
+            else
+                b.icon:SetTexture(b.art)
+                b.icon:SetTexCoord(0, 1, 0, 1)
+                b.icon:SetDesaturated(true); b.icon:SetAlpha(0.45)
+                if b.name then b.name:SetText(MUTED .. b.label .. "|r"); b.sub:SetText("") end
+            end
+            for _, t in ipairs(b.edges) do T.Fill(t, col) end
+        end
+
+        -- Who
+        self.title:SetText(ns.ColorName(c))
+        local class = LOCALIZED_CLASS_NAMES_MALE[c.class] or c.class or ""
+        self.line2:SetText("Level " .. (c.level or "?") .. "  " .. (c.race or "") .. " " .. class)
+        self.line3:SetText(c.guild and ("<" .. c.guild .. ">" .. (c.guildRank and ("  " .. MUTED .. c.guildRank .. "|r") or "")) or "")
+
+        local live = c == ns.me
+        self.model:SetShown(live)
+        if live and not self.model.loaded then
+            self.model:SetUnit("player")
+            self.model:SetPortraitZoom(0)
+            self.model:SetFacing(self.model.facing)
+            self.model.loaded = true
+        end
+        if live then
+            self.modelHint:SetText("drag to turn")
+        else
+            self.modelHint:SetText("The model shows for the character you're logged in on")
+        end
+        local raceAtlas = c.raceFile and GetRaceAtlas and GetRaceAtlas(c.raceFile:lower(), c.sex == 3 and "female" or "male", true)
+        local hasRace = raceAtlas and C_Texture.GetAtlasInfo(raceAtlas) ~= nil
+        self.crest:SetShown(not live and hasRace)
+        if hasRace then self.crest:SetAtlas(raceAtlas) end
+        local classAtlas = c.class and GetClassAtlas and GetClassAtlas(c.class:lower())
+        local hasClass = classAtlas and C_Texture.GetAtlasInfo(classAtlas) ~= nil
+        self.classCrest:SetShown(not live and hasClass)
+        if hasClass then
+            self.classCrest:SetAtlas(classAtlas)
+            if not hasRace then self.classCrest:ClearAllPoints(); self.classCrest:SetSize(96, 96); self.classCrest:SetPoint("CENTER", self.crest) end
+        end
+        if hasRace then self.classCrest:ClearAllPoints(); self.classCrest:SetSize(44, 44); self.classCrest:SetPoint("CENTER", self.crest, "BOTTOMRIGHT", -14, 14) end
+
+        -- Summary across the top
+        local bits = {}
+        if c.ilvl then bits[#bits + 1] = "item level " .. GOLD .. c.ilvl .. "|r" end
+        bits[#bits + 1] = ns.Money(c.money or 0, true)
+        local played = ns.Played(c)
+        if played then bits[#bits + 1] = ns.Duration(played) .. " played" end
+        local summary = ns.SpecSummary(ns.ActiveSpec(c))
+        if summary then bits[#bits + 1] = "talents " .. summary end
+        self.summary:SetText(table.concat(bits, MUTED .. "   ·   |r"))
+
+        -- Stats
+        local rows = StatRows(c)
+        local used = 0
+        if rows then
+            for _, r in ipairs(rows) do
+                used = used + 1
+                local l = StatLine(used)
+                if r.head then
+                    l.label:SetText(r.head); l.label:SetTextColor(C.accent[1], C.accent[2], C.accent[3])
+                    l.label:SetFont(T.display, 11, ""); l.value:SetText("")
+                else
+                    l.label:SetText(r[1]); l.label:SetTextColor(C.muted[1], C.muted[2], C.muted[3])
+                    l.label:SetFont(T.mono, 11, ""); l.value:SetText(r[2])
+                end
+                l.label:Show(); l.value:Show()
+            end
+        else
+            used = 1
+            local l = StatLine(1)
+            l.label:SetFont(T.mono, 10, "")
+            l.label:SetTextColor(C.place[1], C.place[2], C.place[3])
+            l.label:SetText("Stats are recorded at login:\nlog in on " .. c.name .. " once.")
+            l.value:SetText("")
+            l.label:Show(); l.value:Show()
+        end
+        for i = used + 1, #self.stats.lines do self.stats.lines[i].label:Hide(); self.stats.lines[i].value:Hide() end
+
+        SetFooter(c.name .. (c.stats and c.stats.seen and ("   ·   stats " .. (live and "live" or ("as of " .. ns.Ago(c.stats.seen)))) or "")
+            .. (c.lastSeen and not live and ("   ·   gear as of " .. ns.Ago(c.lastSeen)) or "")
+            .. "   ·   Shift-click links an item in chat")
+    end
+end
+
 local TABS_DEF = {
     { key = "chars", label = "CHARACTERS",  build = BuildCharacters },
     { key = "items", label = "ITEMS",       build = BuildItems },
@@ -1996,6 +2312,7 @@ local TABS_DEF = {
     { key = "reps",  label = "REPUTATION",  build = BuildReputation },
     { key = "locks", label = "LOCKOUTS",    build = BuildLockouts },
     { key = "talents", label = "TALENTS",   build = BuildTalents },
+    { key = "armory",  label = "ARMORY",    build = BuildArmory },
 }
 
 local function Select(key)
@@ -2188,6 +2505,13 @@ function ns.ShowTalents(key, mode)
     if key then views.talents.pick, views.talents.group = key, false end
     if mode then views.talents.mode = mode end
     ns.ShowUI("talents")
+end
+
+function ns.ShowArmory(key)
+    if not ns.me then return end
+    if not frame then Build() end
+    if key then views.armory.pick = key end
+    ns.ShowUI("armory")
 end
 
 function ns.ToggleUI()

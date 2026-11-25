@@ -91,7 +91,29 @@ function canaccessvalue() return true end
 function UnitName() return "Aelin", "Galathynius" end
 function GetRealmName() return "Dreamscythe" end
 function UnitClass() return "Mage", "MAGE" end
-function UnitRace() return "Human" end
+function UnitRace() return "Human", "Human", 1 end
+function UnitSex() return 3 end
+function UnitStat(_, i) return 0, ({ 40, 30, 50, 60, 55 })[i] end
+function UnitArmor() return 100, 420 end
+function UnitHealthMax() return 900 end
+function UnitPowerMax() return 1500 end
+function UnitPowerType() return 0, "MANA" end
+function UnitAttackPower() return 50, 0, 0 end
+function UnitRangedAttackPower() return 20, 0, 0 end
+function UnitResistance(_, school) return 0, school == 4 and 15 or 0 end
+function GetCritChance() return 5.1 end
+function GetRangedCritChance() return 4.2 end
+function GetSpellCritChance() return 7.25 end
+function GetDodgeChance() return 3.5 end
+function GetParryChance() return 0 end
+function GetBlockChance() return 0 end
+function GetSpellBonusDamage() return 34 end
+function GetSpellBonusHealing() return 30 end
+function GetGuildInfo() return "Night Watch", "Officer" end
+function InCombatLockdown() return false end
+function GetRaceAtlas(race, sex, hi) return (hi and "raceicon128-" or "raceicon-") .. race .. "-" .. sex end
+function GetClassAtlas(class) return "classicon-" .. class end
+C_Texture = { GetAtlasInfo = function(name) return { name = name } end }
 function UnitFactionGroup() return "Alliance" end
 function UnitGUID() return "Player-4372-0A1B2C3D" end
 function GetRealmID() return 4372 end
@@ -166,6 +188,7 @@ C_Item = {
     GetItemQualityByID = function() return 1 end,
     GetItemIconByID = function() return 1 end,
     GetItemQualityColor = function() return 1, 1, 1, "ffffffff" end,
+    GetDetailedItemLevelInfo = function() return 12 end,
 }
 C_ClassColor = { GetClassColor = function() return { GenerateHexColor = function() return "ff3fc7eb" end } end }
 C_AddOns = { GetAddOnMetadata = function() return "0.1.0" end }
@@ -728,6 +751,27 @@ do
     for _, r in ipairs(view.drop.list.rows) do if r.shown and r.entry and r.entry.key == false then all = r end end
     all.scripts.OnClick(all)
     check(view.list.shown and not view.grid.shown, "items grid: ALL CHARACTERS returns to the search")
+end
+-- Armory: the character you're on gets the live model and its stats; an alt gets the crest
+do
+    check(me.stats and me.stats[3] == 50 and me.stats.armor == 420 and me.stats.res[4] == 15 and me.guild == "Night Watch"
+        and me.sex == 3 and me.raceFile == "Human", "armory: stats, guild, race and sex recorded at login")
+    ns.ShowArmory()
+    local view
+    for _, f in ipairs(allFrames) do if rawget(f, "weapons") then view = f end end
+    local chest
+    for _, b in ipairs(view.slots) do if b.slot == 5 then chest = b end end
+    check(chest.itemID == 6097 and chest.name.text:find("Acolyte's Shirt", 1, true) and chest.sub.text:find("ilvl 12", 1, true),
+        "armory: the chest slot shows the saved item, name and item level")
+    check(view.model.shown and not view.crest.shown, "armory: your own character gets the live model")
+    local text = {}
+    for _, l in ipairs(view.stats.lines) do if l.label.shown then text[#text + 1] = l.label.text .. "=" .. l.value.text end end
+    text = table.concat(text, ";")
+    check(text:find("Stamina=50", 1, true) and text:find("Mana=1,500", 1, true) and text:find("Frost resist=15", 1, true)
+        and text:find("Spell crit=7.25%", 1, true), "armory: the stats panel lists them")
+    ns.ShowArmory("Dreamscythe|Borin Stonefist")
+    check(not view.model.shown and view.classCrest.shown and view.stats.lines[1].label.text:find("log in on Borin", 1, true),
+        "armory: an alt gets the crest, and a hint where stats are missing")
 end
 ns.ShowUI("chars")
 RunTimers()
