@@ -13,6 +13,9 @@
 - **Mail**: items and gold in each character's mailbox count in tooltips, search and a new MAIL column,
   which turns orange when a letter has less than a week left. Mail you send to your own characters
   counts straight away. At login, a chat line warns about mail that runs out within 3 days.
+- **Reputation**: a new tab listing every faction your characters have met, grouped as in the game's
+  reputation panel, with each character's standing and the best one's progress bar. Search by faction name;
+  hover for exact numbers. Recorded at login and whenever reputation changes.
 - Tooltips say just "bags" when everything is in one place, and split it out ("bags 10, bank 2") only when it isn't.
 - Fixed: gold, XP and rested were saved as 0 when you logged out.
 - Fixed: played time is now asked for on a character's first login (it errored).

@@ -183,6 +183,8 @@ ns:On("ADDON_LOADED", function(name)
     db.items   = db.items or {}     -- itemID -> { name, quality, icon, link }: for search
     db.recipes = db.recipes or {}   -- recipeID -> { name, icon, item }
     db.warband = db.warband or {}   -- the account bank, shared by every character: { items, seen }
+    db.factions = db.factions or {} -- factionID -> { name, group, order }
+    db.groups  = db.groups or {}    -- reputation header -> its place in the list
     ns.db, ns.settings = db, db.settings
     if ns.OnLoad then ns.OnLoad() end
 end)
@@ -205,6 +207,8 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.ShowUI("items", rest)
     elseif cmd == "profs" or cmd == "professions" then
         ns.ShowUI("profs", rest)
+    elseif cmd == "reps" or cmd == "rep" or cmd == "reputation" then
+        ns.ShowUI("reps", rest)
     elseif cmd == "options" or cmd == "config" then
         ns.OpenOptions()
     elseif cmd == "reset" then
@@ -213,6 +217,6 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.Say("window back to its usual size, in the middle.")
     else
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts options · /alts reset (window size and position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts options · /alts reset (window size and position)")
     end
 end

@@ -3,7 +3,7 @@
 # Forever Alts
 
 **Every character at a glance, for WoW Forever.** Forever Alts records each character you log in on: gold,
-level, played time, rested XP, bags, bank, gear, mail and professions. It shows them all in one window and puts
+level, played time, rested XP, bags, bank, gear, mail, professions and reputations. It shows them all in one window and puts
 item counts on every tooltip. It does the job of Altoholic, with a cleaner look and nothing to configure.
 
 > [!NOTE]
@@ -19,6 +19,9 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   who has how many. Click a character on the Characters tab to browse everything they carry.
 - **Professions**: every character's professions with skill bars and how many recipes they know. Type in the search
   box to find which of your characters can make something.
+- **Reputation**: every faction any of your characters has met, grouped like the game's reputation panel, with each
+  character's standing (coloured Hated to Exalted, with progress) and a bar for the best of them. Hover a faction
+  for exact numbers.
 - **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
   account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
 - **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a
@@ -59,6 +62,7 @@ Forever Alts can only see the character you're playing, so each character has to
 | Mail | **When you open a mailbox**, and at once when you send mail to one of your characters |
 | Profession skill levels | On login |
 | Known recipes | **When you open that profession's window** |
+| Reputations | On login, and whenever reputation changes |
 
 > [!TIP]
 > After installing, log in on each alt, open the bank and a mailbox, and open each profession window once. From then on
@@ -85,6 +89,7 @@ and lists everything they hold. Click the *ONLY …* chip to clear the filter.
 | `/alts` | Open or close the window (also `/foreveralts`) |
 | `/alts items <text>` | Open the Items tab searching for `<text>` |
 | `/alts profs <text>` | Open the Professions tab searching recipes for `<text>` |
+| `/alts reps <text>` | Open the Reputation tab searching factions for `<text>` |
 | `/alts options` | Open the options panel |
 | `/alts reset` | Put the window back to its usual size, in the middle of the screen |
 | `/alts help` | List the commands |
@@ -115,7 +120,7 @@ cd ForeverAlts && lua5.1 tests/smoke.lua   # headless run against a stubbed WoW 
 ```
 
 The smoke test loads every file in TOC order, logs a character in, opens the bank and a profession window,
-checks the tooltip lines and the rested and played arithmetic, and renders all three views. It catches nil
+checks the tooltip lines and the rested and played arithmetic, and renders all four views. It catches nil
 calls and typos the static gate can't. It is not a substitute for the game.
 
 Releasing follows the shared pipeline: `wowdev bump ForeverAlts X.Y.Z -w`, update `CHANGELOG.md`,
@@ -129,10 +134,11 @@ Releasing follows the shared pipeline: `wowdev bump ForeverAlts X.Y.Z -w`, updat
 | `Core.lua` | Saved data and defaults, the character key, the event bus, formatting, played and rested arithmetic, `/alts` |
 | `Scan.lua` | Records the current character: summary, bags, gear, bank tabs, professions, recipes, played time |
 | `Mail.lua` | The inbox, mail sent to your own characters, expiry and the login warning |
+| `Reputation.lua` | Standings with every faction, the standing names and colours |
 | `Tooltip.lua` | Item tooltip lines (counts and *Made by*), the crafter index |
 | `Theme.lua` | wowdb.dev's colour tokens and fonts, and the small widgets built from them |
 | `List.lua` | A virtual scrolling list: a fixed set of rows reused as you scroll |
-| `UI.lua` | The window and its three views |
+| `UI.lua` | The window and its four views |
 | `Options.lua` | The Settings panel |
 | `tests/smoke.lua` | Headless smoke test (not shipped) |
 | `media/fonts` | Oswald and JetBrains Mono, with their OFL licences (shipped) |
@@ -162,6 +168,14 @@ those runs out. The server hands over at most 50 letters at a time; `hidden` is 
 says so. Sending is caught with `hooksecurefunc("SendMail")`, which reads the attachments and gold before they leave,
 and is credited to the recipient on `MAIL_SEND_SUCCESS` (dropped on `MAIL_FAILED`). The recipient matches a stored
 character by full name, ignoring case and `-`, or by first name when only one of your characters has it.
+
+**Reputations** come from `C_Reputation.GetFactionDataByIndex`, which only lists factions under open headers. So a
+scan opens every collapsed header, reads the whole list, then closes those headers again from the bottom up, so closing
+one doesn't shift the ones above. The reputation panel ends up exactly as you left it. That toggling fires
+`UPDATE_FACTION`, so events in the second after a scan are ignored, or every scan would trigger the next. While the
+reputation panel is open, the headers aren't touched: only the visible rows are read and merged in. Each character keeps
+`reps = { factionID -> { r, cur, max } }`, the standing (1 Hated to 8 Exalted) and progress through it. Faction names
+and their group are kept once for the account. A faction you moved to *Inactive* keeps its real group.
 
 **Recipes** come from `C_TradeSkillUI` when your own profession window opens. Linked professions, guild lists
 and NPC crafting orders are ignored. Each learned recipe's output item comes from `GetRecipeSchematic`, which
@@ -195,7 +209,9 @@ A secret written to saved variables would break every later comparison.
 - **Mail is per character, not per letter.** Storing the totals and the soonest expiry is all the tooltip, search and
   warning need. A per-letter list would let the addon show each letter, but it would go stale the moment mail is taken
   on another client or returned.
-- **Not in v0.1**: auctions, reputations, quests, currencies, lockouts, guild bank. Each is a self-contained
+- **Reputation reads the list rather than asking for each faction by ID.** `GetFactionDataByID` would avoid opening
+  headers, but it needs a list of IDs to ask about, and the list is what says which factions a character has met.
+- **Not in v0.1**: auctions, quests, currencies, lockouts, guild bank. Each is a self-contained
   scan plus a view, and can be added without changing the data already saved.
 
 ## Troubleshooting

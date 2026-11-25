@@ -500,12 +500,147 @@ local function BuildProfessions(view)
     end
 end
 
+---- Reputation -----------------------------------------------------------------
+
+local function Standing(rep, withNumbers)
+    local c = ns.StandingColor(rep.r)
+    local text = Hex(c) .. ns.StandingName(rep.r) .. "|r"
+    if rep.max and rep.max > 0 then
+        if withNumbers then
+            text = text .. MUTED .. "  " .. ns.Commas(rep.cur) .. " / " .. ns.Commas(rep.max) .. "|r"
+        else
+            text = text .. MUTED .. " " .. math.floor(100 * rep.cur / rep.max) .. "%|r"
+        end
+    end
+    return text
+end
+
+local function BuildReputation(view)
+    view.search = T.SearchBox(view, "Search factions", function(text)
+        view.query = text
+        view:Refresh()
+    end)
+    view.search:SetPoint("TOPLEFT", 0, 0)
+    view.search:SetWidth(360)
+
+    view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
+    view.hint:SetPoint("TOPLEFT", PAD, -120)
+    view.hint:SetPoint("TOPRIGHT", -PAD, -120)
+    view.hint:SetWordWrap(true)
+
+    local BAR = 140
+    view.list = ns.CreateList(view, 34, function(row)
+        row.group = T.Text(row, T.display, 10, C.accent)
+        row.group:SetPoint("BOTTOMLEFT", 6, 6)
+        row.name = T.Text(row, T.display, 12, C.primary)
+        row.name:SetPoint("TOPLEFT", 8, -4)
+        row.name:SetPoint("RIGHT", -(BAR + 24), 0)
+        row.by = T.Text(row, T.mono, 10, C.muted)
+        row.by:SetPoint("BOTTOMLEFT", 8, 4)
+        row.by:SetPoint("RIGHT", -(BAR + 24), 0)
+        row.best = T.Text(row, T.display, 12, C.primary, "RIGHT")
+        row.best:SetPoint("TOPRIGHT", -10, -4)
+        row.bar = T.Bar(row, BAR, 3)
+        row.bar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -10, 8)
+        row:SetScript("OnEnter", function(self)
+            local e = self.item
+            if not e or e.header then return end
+            GameTooltip:SetOwner(self, "ANCHOR_CURSOR_RIGHT", 12, 0)
+            GameTooltip:AddLine(e.name)
+            for _, b in ipairs(e.by) do
+                GameTooltip:AddDoubleLine(ns.ColorName(b.c), Standing(b.rep, true), 1, 1, 1, 1, 1, 1)
+            end
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave", GameTooltip_Hide)
+    end, function(row, e)
+        local header = e.header ~= nil
+        row.group:SetShown(header)
+        row.name:SetShown(not header)
+        row.by:SetShown(not header)
+        row.best:SetShown(not header)
+        row.bar:SetShownAll(not header)
+        if header then
+            row.group:SetText(e.header:upper())
+            return
+        end
+        row.name:SetText(e.name)
+        local parts = {}
+        for _, b in ipairs(e.by) do table.insert(parts, ns.ColorName(b.c) .. " " .. Standing(b.rep)) end
+        row.by:SetText(table.concat(parts, MUTED .. "  ·  |r"))
+        local best = e.by[1].rep
+        row.best:SetText(Hex(ns.StandingColor(best.r)) .. ns.StandingName(best.r) .. "|r")
+        row.bar:SetFillColor(ns.StandingColor(best.r))
+        row.bar:SetValue(best.max and best.max > 0 and best.cur / best.max or 1)
+    end)
+    view.list:SetPoint("TOPLEFT", 0, -34)
+    view.list:SetPoint("BOTTOMRIGHT")
+
+    function view:Refresh()
+        local query = (self.query or ""):lower()
+        local db = ns.db
+        local found, recorded = {}, 0
+        for _, c in ipairs(ns:Characters()) do
+            if c.reps then recorded = recorded + 1 end
+            for id, rep in pairs(c.reps or {}) do
+                local f = db.factions[id]
+                local name = f and f.name or ("faction " .. id)
+                if query == "" or name:lower():find(query, 1, true) then
+                    local e = found[id]
+                    if not e then
+                        e = { id = id, name = name, group = f and f.group or "", order = f and f.order or 9999, by = {} }
+                        found[id] = e
+                    end
+                    table.insert(e.by, { c = c, rep = rep })
+                end
+            end
+        end
+        local list = {}
+        for _, e in pairs(found) do
+            table.sort(e.by, function(a, b)
+                local sa, sb = ns.RepScore(a.rep), ns.RepScore(b.rep)
+                if sa == sb then return a.c.name < b.c.name end
+                return sa > sb
+            end)
+            table.insert(list, e)
+        end
+        local function GroupOrder(g) return db.groups[g] or 9999 end
+        table.sort(list, function(a, b)
+            if a.group ~= b.group then
+                local ga, gb = GroupOrder(a.group), GroupOrder(b.group)
+                if ga ~= gb then return ga < gb end
+                return a.group < b.group
+            end
+            if a.order ~= b.order then return a.order < b.order end
+            return a.name < b.name
+        end)
+        -- A header row above each group
+        local rows, group = {}, nil
+        for _, e in ipairs(list) do
+            if e.group ~= group then
+                group = e.group
+                if group ~= "" then table.insert(rows, { header = group }) end
+            end
+            table.insert(rows, e)
+        end
+        self.hint:SetShown(#list == 0)
+        self.hint:SetText(query == "" and "No reputations recorded yet. They're read when you log in on a character."
+            or ("No faction matches \"" .. (self.query or "") .. "\"."))
+        self.list:SetData(rows)
+        local chars = #ns:Characters()
+        SetFooter(#list .. " faction" .. (#list == 1 and "" or "s") .. "   ·   "
+            .. (recorded < chars and ((chars - recorded) .. " character" .. (chars - recorded == 1 and "" or "s")
+                .. " not recorded yet: log in on them") or "hover a faction for exact numbers"))
+    end
+end
+
 ---- The window -----------------------------------------------------------------
 
 local TABS_DEF = {
     { key = "chars", label = "CHARACTERS",  build = BuildCharacters },
     { key = "items", label = "ITEMS",       build = BuildItems },
     { key = "profs", label = "PROFESSIONS", build = BuildProfessions },
+    { key = "reps",  label = "REPUTATION",  build = BuildReputation },
 }
 
 local function Select(key)
@@ -643,7 +778,7 @@ local function Build()
     end)
 end
 
--- view: "chars" | "items" | "profs"; query fills its search box; onlyKey filters items to one character
+-- view: "chars" | "items" | "profs" | "reps"; query fills its search box; onlyKey filters items to one character
 function ns.ShowUI(view, query, onlyKey)
     if not ns.me then return end
     if not frame then Build() end

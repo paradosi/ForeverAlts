@@ -178,6 +178,29 @@ local inbox = {
     { money = 5000, days = 20 },
     { money = 0, days = 29 },
 }
+-- Reputation: "Alliance" open with Stormwind (Honored, 3000/12000); "Other" collapsed,
+-- hiding the Nightclaw Druids (Exalted)
+local factionList = {
+    { name = "Alliance", factionID = 469, isHeader = true, isCollapsed = false },
+    { name = "Stormwind", factionID = 72, reaction = 6, currentReactionThreshold = 9000, nextReactionThreshold = 21000, currentStanding = 12000 },
+    { name = "Other", factionID = 169, isHeader = true, isCollapsed = true },
+}
+local hidden = { { name = "Nightclaw Druids", factionID = 2758, reaction = 8, currentReactionThreshold = 42000, nextReactionThreshold = 42000, currentStanding = 42999 } }
+local expands, collapses = 0, 0
+C_Reputation = {
+    GetNumFactions = function() return #factionList end,
+    GetFactionDataByIndex = function(i) return factionList[i] end,
+    ExpandFactionHeader = function(i)
+        expands = expands + 1
+        factionList[i].isCollapsed = false
+        for k, f in ipairs(hidden) do table.insert(factionList, i + k, f) end
+    end,
+    CollapseFactionHeader = function(i)
+        collapses = collapses + 1
+        factionList[i].isCollapsed = true
+        for _ = 1, #hidden do table.remove(factionList, i + 1) end
+    end,
+}
 local hooks = {}
 function hooksecurefunc(name, fn) hooks[name] = fn end
 function GetInboxNumItems() return #inbox, 53 end
@@ -242,6 +265,20 @@ Fire("TRADE_SKILL_SHOW")
 RunTimers()
 check(me.recipes.Tailoring[2387] == 2996 and me.recipes.Tailoring[2393] == nil, "only learned recipes recorded")
 
+local reps = me.reps
+check(reps and reps[72] and reps[72].r == 6 and reps[72].cur == 3000 and reps[72].max == 12000, "reputation: progress through Honored")
+check(reps[2758] and reps[2758].r == 8 and reps[2758].max == 0, "reputation: faction under a collapsed header read")
+check(expands == 1 and collapses == 1 and #factionList == 3 and factionList[3].isCollapsed, "reputation: collapsed header closed again")
+check(db.factions[2758].group == "Other" and db.groups.Alliance == 1, "reputation: faction groups recorded")
+Fire("UPDATE_FACTION")
+RunTimers()
+check(expands == 1, "reputation: our own header toggling doesn't rescan")
+clock = clock + 5
+factionList[2].currentStanding = 13000
+Fire("UPDATE_FACTION")
+RunTimers()
+check(me.reps[72].cur == 4000 and expands == 2, "reputation: a rep gain rescans")
+
 -- Mail: nothing is read until the server answers, then the inbox is counted
 Fire("MAIL_SHOW")
 check(me.mail == nil, "mail not recorded before the inbox arrives")
@@ -265,7 +302,7 @@ check(borinMail.letters == 1, "mail to someone else is ignored")
 local borin = db.chars["Dreamscythe|Borin Stonefist"]
 check(math.abs(ns.Rested(borin) - 0.10) < 0.001, "offline rested XP grows 5% per 8h resting")
 clock = clock + 600
-check(ns.Played(me) == 90600, "played time keeps counting this session")
+check(ns.Played(me) == 90605, "played time keeps counting this session")
 check(ns.Money(1234567) == "123|cffe3b664g|r 45|cffc2c8das|r 67|cffd9905fc|r", "money formatting")
 check(ns.Commas(1234567) == "1,234,567" and ns.Commas(123456) == "123,456", "thousands separators")
 
@@ -293,6 +330,8 @@ SlashCmdList.FOREVERALTS("items linen")
 SlashCmdList.FOREVERALTS("items")
 SlashCmdList.FOREVERALTS("profs bolt")
 SlashCmdList.FOREVERALTS("profs")
+SlashCmdList.FOREVERALTS("reps")
+SlashCmdList.FOREVERALTS("reps storm")
 -- Give each list a height so its rows are built, then render every view with data
 local function SizeLists() for _, f in ipairs(SIZED) do f.scripts.OnSizeChanged(f, 800, 300) end end
 SizeLists()
@@ -307,6 +346,8 @@ ns.ShowUI("chars")
 SlashCmdList.FOREVERALTS("items linen")
 SlashCmdList.FOREVERALTS("profs bolt")
 SlashCmdList.FOREVERALTS("profs")
+SlashCmdList.FOREVERALTS("reps")
+SlashCmdList.FOREVERALTS("reps night")
 ns.ShowUI("items", "", "Dreamscythe|Borin Stonefist")
 ns.ShowUI("chars")
 RunTimers()
@@ -319,7 +360,7 @@ UnitXP = function() return 0 end
 GetXPExhaustion = function() return nil end
 Fire("PLAYER_LOGOUT")
 check(me.money == 1234567 and me.xp == 4000 and me.rested == 2500, "logout keeps gold, XP and rested")
-check(me.played == 90600, "played time saved at logout")
+check(me.played == 90605, "played time saved at logout")
 
 -- The login warning names the character whose mail runs out in 2 days
 local said = {}

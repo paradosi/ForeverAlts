@@ -178,5 +178,9 @@ function T.Bar(parent, width, height)
         fill:SetWidth(math.max(1, width * f))
     end
     track.SetShownAll = function(self, on) self:SetShown(on); fill:SetShown(on) end
+    track.SetFillColor = function(self, c)
+        T.Fill(fill, c)
+        self:SetColorTexture(c[1], c[2], c[3], 0.18)
+    end
     return track
 end

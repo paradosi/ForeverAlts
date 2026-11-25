@@ -11,6 +11,7 @@
 Core.lua
 Scan.lua
 Mail.lua
+Reputation.lua
 Tooltip.lua
 Theme.lua
 List.lua
