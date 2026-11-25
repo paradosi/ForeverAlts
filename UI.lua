@@ -1572,7 +1572,7 @@ local function BuildTalents(view)
                 local all = drop.chars
                 local shown = math.min(#all, MAXROWS)
                 l.offset = math.max(0, math.min(l.offset, #all - shown))
-                self:SetSize(math.max(drop:GetWidth(), 240), shown * ROW + 4)
+                l:SetSize(math.max(drop:GetWidth(), 240), shown * ROW + 4)
                 for i = 1, shown do
                     local r = l.rows[i]
                     if not r then
