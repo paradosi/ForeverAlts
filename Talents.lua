@@ -164,3 +164,89 @@ function ns.SpecSummary(spec)
     end
     return table.concat(points, "/"), top
 end
+
+---- Talent plans, per class: db.plans[class] = { active = name, list = { name -> plan } },
+---- a plan being { scratch, ranks = { spellID -> rank }, order = { spellID, … } }.
+---- (Before named plans, db.plans[class] was one plan: it becomes "Plan 1".)
+
+function ns.PlanBook(class)
+    local plans = ns.db.plans
+    local book = plans[class]
+    if not book or book.ranks then
+        book = { active = "Plan 1", list = { ["Plan 1"] = book or { scratch = false, ranks = {}, order = {} } } }
+        plans[class] = book
+    end
+    if not book.list[book.active] then
+        book.active = next(book.list)
+        if not book.active then
+            book.active = "Plan 1"
+            book.list[book.active] = { scratch = false, ranks = {}, order = {} }
+        end
+    end
+    return book
+end
+
+function ns.NewPlanName(book, base)
+    base = base or "Plan"
+    local n = 1
+    while book.list[base .. " " .. n] do n = n + 1 end
+    return base .. " " .. n
+end
+
+local function Trim(s) return ((s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+
+-- Each returns a message when it can't be done
+function ns.AddPlan(book, name, plan)
+    name = Trim(name)
+    if name == "" then return "A plan needs a name." end
+    if book.list[name] then return "There's already a plan called \"" .. name .. "\"." end
+    book.list[name], book.active = plan, name
+end
+
+function ns.RenamePlan(book, old, new)
+    new = Trim(new)
+    if new == old then return end
+    if new == "" then return "A plan needs a name." end
+    if book.list[new] then return "There's already a plan called \"" .. new .. "\"." end
+    book.list[new], book.list[old] = book.list[old], nil
+    if book.active == old then book.active = new end
+end
+
+function ns.DeletePlan(book, name)
+    book.list[name] = nil
+    local names = {}
+    for n in pairs(book.list) do names[#names + 1] = n end
+    table.sort(names)
+    book.active = names[1]
+    if not book.active then
+        book.active = "Plan 1"
+        book.list[book.active] = { scratch = false, ranks = {}, order = {} }
+    end
+end
+
+-- A plan as one line of text: FA1;CLASS;scratch;key=rank,…;key.key.… (the order points were added)
+function ns.ExportPlan(class, plan)
+    local ranks, keys = {}, {}
+    for k in pairs(plan.ranks) do keys[#keys + 1] = tostring(k) end
+    table.sort(keys)
+    for _, k in ipairs(keys) do ranks[#ranks + 1] = k .. "=" .. (plan.ranks[tonumber(k) or k] or plan.ranks[k]) end
+    local order = {}
+    for i, k in ipairs(plan.order) do order[i] = tostring(k) end
+    return table.concat({ "FA1", class, plan.scratch and "1" or "0", table.concat(ranks, ","), table.concat(order, ".") }, ";")
+end
+
+-- Back from text: true, { class, plan } or false, why
+function ns.ImportPlan(text)
+    local version, class, scratch, ranks, order = Trim(text):match("^(FA%d);(%u+);([01]);([^;]*);?([^;]*)$")
+    if version ~= "FA1" then return false, "That isn't a Forever Alts plan (they start with FA1;)." end
+    if not LOCALIZED_CLASS_NAMES_MALE or not LOCALIZED_CLASS_NAMES_MALE[class] then
+        return false, "That plan is for an unknown class (" .. class .. ")."
+    end
+    local plan = { scratch = scratch == "1", ranks = {}, order = {} }
+    for k, r in ranks:gmatch("([^,=]+)=(%d+)") do
+        r = tonumber(r)
+        if r > 0 and r <= 5 then plan.ranks[tonumber(k) or k] = r end
+    end
+    for k in order:gmatch("[^%.]+") do plan.order[#plan.order + 1] = tonumber(k) or k end
+    return true, { class = class, plan = plan }
+end

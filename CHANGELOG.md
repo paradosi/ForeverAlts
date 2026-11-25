@@ -30,6 +30,7 @@
 - **Talent planner**: PLAN on the Talents tab. Click talents to plan a build with the game's rules (51 points,
   5 per tier, prerequisites), from the character's current talents or from scratch. Planned points are blue,
   talents you can take next are outlined, and the tooltip says why one is closed. `/alts plan`.
+  Keep several named plans per class, and copy a plan as text to share it or paste one in.
 - The window is a little wider to fit the new column.
 - Fixed: in a narrow window the footer ran into the version number. It now ends with "…"; hover it for the whole line.
 - New options: item tooltips can count only characters of your faction, or only those on your ruleset.

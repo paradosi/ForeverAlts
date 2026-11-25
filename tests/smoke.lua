@@ -521,7 +521,27 @@ Click(3010, nil, true); Click(3020)
 check(foot():find("0/6/0", 1, true) ~= nil, "plan: the tier opens after 5 points")
 Click(3010, "RightButton")
 check(foot():find("Other planned talents need this one", 1, true) ~= nil, "plan: can't pull a point others depend on")
-check(#ForeverAltsDB.plans.MAGE.order == 6 and ForeverAltsDB.plans.MAGE.order[6] == 3020, "plan: points kept in the order they were added")
+local book = ForeverAltsDB.plans.MAGE
+check(book.list and book.active == "Plan 1", "plans: an old single plan becomes \"Plan 1\"")
+local p1 = book.list["Plan 1"]
+check(#p1.order == 6 and p1.order[6] == 3020, "plan: points kept in the order they were added")
+
+-- Named plans: copy one out, paste it back as a second plan, rename, delete
+local text = ns.ExportPlan("MAGE", p1)
+check(text == "FA1;MAGE;1;3010=5,3020=1;3010.3010.3010.3010.3010.3020", "plans: copied as one line (" .. text .. ")")
+local ok, got = ns.ImportPlan(text)
+check(ok and got.class == "MAGE" and got.plan.scratch and got.plan.ranks[3010] == 5 and #got.plan.order == 6, "plans: pasted back the same")
+check(not ns.ImportPlan("hello"), "plans: rubbish is refused")
+check(ns.AddPlan(book, ns.NewPlanName(book, "Pasted"), got.plan) == nil and book.active == "Pasted 1", "plans: pasted plan added and chosen")
+check(ns.RenamePlan(book, "Pasted 1", "Plan 1") ~= nil, "plans: rename refuses a name in use")
+ns.RenamePlan(book, "Pasted 1", "Fire raid")
+check(book.list["Fire raid"] and book.active == "Fire raid", "plans: renamed")
+SlashCmdList.FOREVERALTS("plan")
+check(foot():find("0/6/0", 1, true) ~= nil, "plans: the tab draws the chosen plan")
+ns.DeletePlan(book, "Fire raid")
+check(book.active == "Plan 1" and not book.list["Fire raid"], "plans: deleted, back to the other")
+ns.DeletePlan(book, "Plan 1")
+check(book.active == "Plan 1" and next(book.list["Plan 1"].ranks) == nil, "plans: deleting the last leaves an empty one")
 SlashCmdList.FOREVERALTS("locks")
 check(ForeverAltsFrame.footer.text:find("1 of 2 characters saved", 1, true) ~= nil, "lockouts: tab renders the grid")
 now = now + 5 * 86400

@@ -34,7 +34,8 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
   Shift for every rank. Vanilla's rules hold (51 points, 5 points per tier, arrows need their source at full rank),
   and the tooltip says why a talent is closed. Learned points stay gold, planned ones are blue, and talents that can
   take a point are outlined. *From current* builds on the character's talents; *from scratch* plans a respec.
-  One plan per class, kept between sessions, with the order you added points.
+  Named plans per class (*+ New*, *Rename*, *Delete*), kept between sessions with the order you added points.
+  *Copy* gives a plan as one line of text (`FA1;PRIEST;…`) to share; *Paste* takes one in.
 - **Tooltips**: every item tooltip lists the characters holding it (and where: bags, bank, worn or mail), the
   account bank, and a total. If one of your characters knows the recipe, it adds a *Made by* line.
 - **Mail**: items and gold waiting in each mailbox count everywhere items do. The MAIL column turns orange when a
@@ -220,7 +221,8 @@ positions and every position snaps to the nearest step. A few nodes sit ten time
 the game draws those off its canvas, out of sight, so they're left out here too.
 `C_Traits.GenerateImportString` gives the loadout code.
 
-**The planner** keeps one plan per class in `db.plans[class] = { scratch, ranks = { spellID -> rank }, order }`.
+**The planner** keeps named plans per class in `db.plans[class] = { active, list = { name -> { scratch, ranks =
+{ spellID -> rank }, order } } }`. A shared plan is `FA1;CLASS;scratch;spellID=rank,…;spellID.spellID…`.
 It draws on the active spec's saved trees, so a class can be planned once a character of it has been recorded. The rules
 are checked from the drawn grid: a talent in row *n* (from 0) needs 5·*n* points in rows above it in its tree, an arrow's
 talent needs its source at full rank, and taking a point off is refused if any other planned point would stop holding.

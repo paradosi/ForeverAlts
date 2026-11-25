@@ -984,19 +984,38 @@ local function BuildTalents(view)
     local cbg = box:CreateTexture(nil, "BACKGROUND"); T.Fill(cbg, C.deep); cbg:SetAllPoints()
     T.Border(box, C.accent)
     box:Hide()
+    -- The box either shows text to copy (read-only: typing puts it back) or asks for some
+    -- (a plan's name, a pasted plan): Enter hands it to box.onEnter, Esc cancels
+    box.shown, box.onEnter = false, false
     box:SetScript("OnEscapePressed", function(self) self:Hide() end)
-    box:SetScript("OnEnterPressed", function(self) self:Hide() end)
-    -- Read-only: typing puts the code back
-    box:SetScript("OnTextChanged", function(self, user)
-        if user and self.code then self:SetText(self.code); self:HighlightText() end
+    box:SetScript("OnEnterPressed", function(self)
+        local onEnter = self.onEnter
+        self:Hide()
+        if onEnter then onEnter(self:GetText()) end
     end)
-    view.copy:SetScript("OnClick", function()
-        if box:IsShown() or not box.code then box:Hide(); return end
+    box:SetScript("OnTextChanged", function(self, user)
+        if user and self.shown then self:SetText(self.shown); self:HighlightText() end
+    end)
+    box:SetScript("OnHide", function(self) self.shown, self.onEnter = false, false end)
+    function view:ShowText(text, footer)
         box:Show()
-        box:SetText(box.code)
+        box.shown, box.onEnter = text, false
+        box:SetText(text)
         box:SetFocus()
         box:HighlightText()
-        SetFooter("Ctrl+C copies the code · paste it with Import in the game's talent window · Esc closes")
+        SetFooter(footer)
+    end
+    function view:Ask(initial, footer, onEnter)
+        box:Show()
+        box.shown, box.onEnter = false, onEnter
+        box:SetText(initial or "")
+        box:SetFocus()
+        box:HighlightText()
+        SetFooter(footer)
+    end
+    view.copy:SetScript("OnClick", function()
+        if box:IsShown() or not box.code then box:Hide(); return end
+        view:ShowText(box.code, "Ctrl+C copies the code · paste it with Import in the game's talent window · Esc closes")
     end)
 
     view.hint = T.Text(view, T.mono, 11, C.muted, "CENTER")
@@ -1029,6 +1048,16 @@ local function BuildTalents(view)
     view.fromCurrent = T.TextButton(view, "FROM CURRENT", 10)
     view.fromCurrent:SetPoint("RIGHT", view.scratch, "LEFT", 0, 0)
     view.msg = false
+
+    -- The plan bar, under the top row in PLAN mode: the class's plans, then what to do with them
+    view.planTabs = {}
+    view.planActions = {}
+    for i, a in ipairs({ { "paste", "PASTE" }, { "copy", "COPY" }, { "delete", "DELETE" }, { "rename", "RENAME" }, { "new", "+ NEW" } }) do
+        local b = T.TextButton(view, a[2], 10)
+        if i == 1 then b:SetPoint("TOPRIGHT", 0, -30) else b:SetPoint("RIGHT", view.planActions[i - 1], "LEFT", 0, 0) end
+        view.planActions[i] = b
+        view.planActions[a[1]] = b
+    end
 
     local function Panel(i)
         local p = view.panels[i]
@@ -1259,7 +1288,7 @@ local function BuildTalents(view)
 
     -- Lay one spec out across the view's width and height (a plan, if given, sets the ranks)
     function view:Draw(spec, plan)
-        local top, gap, gridTop = 34, 10, 36
+        local top, gap, gridTop = plan and 62 or 34, 10, 36
         local width, height = self:GetWidth(), self:GetHeight()
         if not width or width <= 0 then width = W - PAD * 2 end
         if not height or height <= 0 then height = H - 140 end
@@ -1370,6 +1399,80 @@ local function BuildTalents(view)
     end
     view:SetScript("OnSizeChanged", function(self) if self.spec then self:Draw(self.spec) end end)
 
+    -- The plan bar: one button per plan of the class, and NEW / RENAME / DELETE / COPY / PASTE
+    function view:PlanBar(book, c)
+        local names = {}
+        if book then for name in pairs(book.list) do names[#names + 1] = name end end
+        table.sort(names)
+        local prev
+        for i, name in ipairs(names) do
+            local b = self.planTabs[i]
+            if not b then
+                b = T.TextButton(self, "", 11)
+                self.planTabs[i] = b
+            end
+            b.text:SetText(name:upper())
+            b:SetWidth(math.max(b.text:GetStringWidth(), #name * 6.8) + 20)
+            b:ClearAllPoints()
+            if prev then b:SetPoint("LEFT", prev, "RIGHT", 2, 0) else b:SetPoint("TOPLEFT", -8, -30) end
+            b:SetSelected(name == book.active)
+            b:SetScript("OnClick", function() book.active = name; self.msg = false; box:Hide(); self:Refresh() end)
+            b:Show()
+            prev = b
+        end
+        for i = #names + 1, #self.planTabs do self.planTabs[i]:Hide() end
+        local acts = self.planActions
+        for i = 1, 5 do acts[i]:SetShown(book ~= nil) end
+        if not book then return end
+        local class = c.class
+        local function Ask(prompt, initial, fn) self:Ask(initial, prompt, function(text) fn(text); self:Refresh() end) end
+
+        acts.new:SetScript("OnClick", function()
+            Ask("Name the new plan, then Enter · Esc cancels", ns.NewPlanName(book), function(text)
+                self.msg = ns.AddPlan(book, text, { scratch = false, ranks = {}, order = {} }) or false
+            end)
+        end)
+        acts.rename:SetScript("OnClick", function()
+            Ask("Rename \"" .. book.active .. "\", then Enter · Esc cancels", book.active, function(text)
+                self.msg = ns.RenamePlan(book, book.active, text) or false
+            end)
+        end)
+        acts.delete.armed = acts.delete.armed or false
+        acts.delete.text:SetText(acts.delete.armed and "SURE?" or "DELETE")
+        acts.delete:SetScript("OnClick", function(b)
+            if not b.armed then
+                b.armed = true
+                b.text:SetText("SURE?")
+                C_Timer.After(3, function() b.armed = false; b.text:SetText("DELETE") end)
+                return
+            end
+            b.armed = false
+            ns.DeletePlan(book, book.active)
+            self.msg = false
+            self:Refresh()
+        end)
+        acts.copy:SetScript("OnClick", function()
+            self:ShowText(ns.ExportPlan(class, book.list[book.active]),
+                "Ctrl+C copies the plan · paste it into PASTE on any account · Esc closes")
+        end)
+        acts.paste:SetScript("OnClick", function()
+            Ask("Paste a plan (Ctrl+V), then Enter · Esc cancels", "", function(text)
+                local ok, result = ns.ImportPlan(text)
+                if not ok then self.msg = result; return end
+                local into = ns.PlanBook(result.class)
+                local name = ns.NewPlanName(into, "Pasted")
+                ns.AddPlan(into, name, result.plan)
+                if result.class ~= class then
+                    self.msg = "Saved as \"" .. name .. "\" in the " .. (LOCALIZED_CLASS_NAMES_MALE[result.class] or result.class)
+                        .. " plans: pick a character of that class to see it."
+                    into.active = name
+                else
+                    self.msg = false
+                end
+            end)
+        end)
+    end
+
     function view:Refresh()
         local legacy, planning = self.mode == "legacy", self.mode == "plan"
         local function Has(c) if legacy then return c.legacy ~= nil end return c.talents ~= nil end
@@ -1433,7 +1536,7 @@ local function BuildTalents(view)
         box.code = (not legacy and not planning and spec and spec.code) or false
         self.copy:SetShown(box.code and true or false)
         self.specButtons[2]:ClearAllPoints()
-        self.specButtons[2]:SetPoint("RIGHT", box.code and self.copy or self.modes[2], "LEFT", -12, 0)
+        self.specButtons[2]:SetPoint("RIGHT", box.code and self.copy or self.sep, "LEFT", -12, 0)
         self.specButtons[1]:ClearAllPoints()
         self.specButtons[1]:SetPoint("RIGHT", self.specButtons[2], "LEFT", 0, 0)
 
@@ -1446,15 +1549,20 @@ local function BuildTalents(view)
         elseif not spec then
             self.hint:SetText(c.name .. " has no talents to show yet.")
         end
-        -- The plan for this character's class (one per class, kept across sessions)
-        local plan = false
+        -- The class's plans (named, kept across sessions) and the one being edited
+        local plan, book = false, nil
         if planning and spec and c.class then
-            local plans = ns.db.plans
-            plans[c.class] = plans[c.class] or { scratch = false, ranks = {}, order = {} }
-            plan = NewPlan(spec, plans[c.class], spec.trees)
+            book = ns.PlanBook(c.class)
+            plan = NewPlan(spec, book.list[book.active], spec.trees)
         end
         self.plan = plan
         for _, b in ipairs({ self.clearPlan, self.scratch, self.fromCurrent }) do b:SetShown(plan and true or false) end
+        self:PlanBar(book, c)
+        if box:IsShown() then
+            box:ClearAllPoints()
+            box:SetPoint("TOPLEFT", 0, plan and -58 or -30)
+            box:SetPoint("TOPRIGHT", 0, plan and -58 or -30)
+        end
         if plan then
             self.scratch:SetSelected(plan.saved.scratch)
             self.fromCurrent:SetSelected(not plan.saved.scratch)
