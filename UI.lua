@@ -1576,7 +1576,7 @@ local function BuildTalents(view)
                 for i = 1, shown do
                     local r = l.rows[i]
                     if not r then
-                        r = CreateFrame("Button", nil, self)
+                        r = CreateFrame("Button", nil, l)
                         r:SetHeight(ROW)
                         r:SetPoint("TOPLEFT", 2, -2 - (i - 1) * ROW)
                         r:SetPoint("TOPRIGHT", -2, -2 - (i - 1) * ROW)

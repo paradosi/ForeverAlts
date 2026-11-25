@@ -57,8 +57,9 @@ local methods = {
 Widget.__index = function(_, k) return methods[k] or function() end end
 
 local allFrames = {}
-function CreateFrame(kind, name)
+function CreateFrame(kind, name, parent)
     local f = NewWidget(kind)
+    f.parent = parent or false
     table.insert(allFrames, f)
     if name then _G[name] = f end
     return f
@@ -502,6 +503,7 @@ do
     local rows = {}
     for _, r in ipairs(drop.list.rows) do if r.shown and r.ch then rows[#rows + 1] = r end end
     check(drop.list.shown and #rows == 2, "dropdown: opens with a row per character with talents (" .. #rows .. ")")
+    check(rows[1].parent == drop.list, "dropdown: rows belong to the list, drawn above it")
     local other
     for _, r in ipairs(rows) do if r.ch.key ~= talentsView.pick then other = r end end
     local name = other.ch.name
