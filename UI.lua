@@ -1010,7 +1010,7 @@ local function BuildTalents(view)
         local b = T.TextButton(view, m[2], 10)
         b:SetScript("OnClick", function() view.mode = m[1]; box:Hide(); view:Refresh() end)
         b:ClearAllPoints()
-        if i == 1 then b:SetPoint("TOPRIGHT", 0, 0) else b:SetPoint("RIGHT", view.modes[1], "LEFT", 0, 0) end
+        if i == 1 then b:SetPoint("TOPRIGHT", 0, 0) else b:SetPoint("RIGHT", view.modes[i - 1], "LEFT", 0, 0) end
         view.modes[m[1]] = b
         view.modes[i] = b
     end
