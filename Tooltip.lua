@@ -35,11 +35,14 @@ end
 
 local GREY, GOLD = { 0.588, 0.616, 0.702 }, { 0.890, 0.714, 0.392 }
 
+-- "bags" when it's all in one place; "bags 10, bank 2" when it's split
 local function Where(bags, bank, worn)
     local parts = {}
-    if bags > 0 then table.insert(parts, "bags " .. bags) end
-    if bank > 0 then table.insert(parts, "bank " .. bank) end
-    if worn > 0 then table.insert(parts, "worn " .. worn) end
+    if bags > 0 then table.insert(parts, { "bags", bags }) end
+    if bank > 0 then table.insert(parts, { "bank", bank }) end
+    if worn > 0 then table.insert(parts, { "worn", worn }) end
+    if #parts == 1 then return parts[1][1] end
+    for i, p in ipairs(parts) do parts[i] = p[1] .. " " .. p[2] end
     return table.concat(parts, ", ")
 end
 

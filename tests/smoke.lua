@@ -234,7 +234,8 @@ local tip = { AddLine = function(_, t) lines[#lines + 1] = t end,
 for _, fn in ipairs(tooltipCalls) do fn(tip, { id = 2589 }) end
 local text = table.concat(lines, "\n")
 check(text:find("Aelin Galathynius|r = 55") ~= nil, "tooltip: this character 55 (40 bags + 15 bank)")
-check(text:find("Borin Stonefist|r = 7") ~= nil, "tooltip: alt 7")
+check(text:find("Aelin Galathynius|r = 55  |cff969db3bags 40, bank 15|r", 1, true) ~= nil, "tooltip: split shows each place")
+check(text:find("Borin Stonefist|r = 7  |cff969db3bags|r", 1, true) ~= nil, "tooltip: one place shows no repeat count")
 check(text:find("Account bank = 5") ~= nil and text:find("Total = 67") ~= nil, "tooltip: account bank and total")
 lines = {}
 for _, fn in ipairs(tooltipCalls) do fn(tip, { id = 2996 }) end
