@@ -64,7 +64,7 @@ local function Create()
         ns.ApplyScale()
     end
     local scaleNote = W.Note(host, scale, -4,
-        "text, icons and spacing together, so nothing gets cut off  ·  /alts reset goes back to 100%")
+        "text, icons and spacing grow together  ·  /alts reset: back to 100%")
     local open = W.Button(host, "Open Forever Alts", COL_W)
     open:SetPoint("TOPLEFT", scaleNote, "BOTTOMLEFT", 0, -12)
     open:SetScript("OnClick", function()
@@ -87,7 +87,7 @@ local function Create()
     local talSec = W.Section(host, mailNote, -18, "Talents")
     local remind = Check(talSec, -10, "planRemind", "Remind me of my talent plan")
     local remindNote = W.Note(host, remind, -4,
-        "with points to spend, a chat line names the next talent in your class's plan (/alts plan)")
+        "with points to spend, a chat line names the next talent in your plan  ·  plans: /alts plan")
     local glow = Check(remindNote, -10, "planGlow", "Show the plan in the talent window")
     local glowNote = W.Note(host, glow, -4, "the next planned talent gets a running gold border")
 
