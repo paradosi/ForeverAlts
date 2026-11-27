@@ -1,8 +1,8 @@
 # Changelog
 
-## v0.1.0
+## v1.0.0
 
-- First version, for WoW Forever.
+- First release, for WoW Forever.
 - **Settings** (Esc > Options > AddOns > Forever Alts, or `/alts options`) in the same navy-and-gold look as the window, with the version and a **Help and bug reports** button that gives you the GitHub address to copy. `/alts help` prints both.
 - **Minimap button**: left-click opens or closes the window, right-click opens the settings, drag it around the edge. Turn it off in the settings or with `/alts minimap`.
 - **Characters**: every character you log in on, with level and XP, location, gold, played time,

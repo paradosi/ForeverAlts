@@ -2,8 +2,10 @@
 ## Title: Forever Alts
 ## Notes: Every character at a glance: gold, levels, played time, rested XP, bags, bank, gear, mail, professions, reputation, raid lockouts and talents, with item counts on tooltips. /alts
 ## Author: paradosi-Dreamscythe
-## Version: 0.1.0
+## Version: 1.0.0
 ## X-Website: https://github.com/paradosi/ForeverAlts
+## X-Curse-Project-ID: 1834653
+## X-Wago-ID: EGPalWN1
 ## Category-enUS: Inventory
 ## IconTexture: Interface\AddOns\ForeverAlts\media\textures\logo_64
 ## SavedVariables: ForeverAltsDB
