@@ -15,6 +15,8 @@ ns.defaults = {
     mailWarn     = true,   -- at login, name characters whose mail is about to expire
     planRemind   = true,   -- with talent points to spend, name the next one in the class's plan
     planGlow     = true,   -- the next planned talent glows in the game's talent window
+    minimap      = true,   -- the button on the minimap's edge
+    minimapAngle = 200,    -- where on the edge, in degrees (drag the button to move it)
     scale        = 100,    -- the window's size in percent, 80-150: text, icons and gaps together
     sortKey      = "level",
     sortDesc     = true,
@@ -235,6 +237,10 @@ SlashCmdList.FOREVERALTS = function(msg)
         ns.ShowTalents(nil, "legacy")
     elseif cmd == "options" or cmd == "config" then
         ns.OpenOptions()
+    elseif cmd == "minimap" then
+        db.settings.minimap = not db.settings.minimap
+        ns.UpdateMinimapButton()
+        ns.Say("minimap button " .. (db.settings.minimap and "shown" or "hidden") .. ".")
     elseif cmd == "scale" or cmd == "size" then
         local pct = tonumber(rest)
         if not pct then
@@ -254,6 +260,6 @@ SlashCmdList.FOREVERALTS = function(msg)
     else
         ns.Say("version " .. (ns.VERSION or "?") .. (ns.WEBSITE and ("  ·  help and bug reports: " .. ns.WEBSITE) or ""))
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
-            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts armory · /alts talents · /alts plan · /alts legacy · /alts options · /alts scale <80-150> · /alts reset (window size, scale and position)")
+            .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts armory · /alts talents · /alts plan · /alts legacy · /alts options · /alts minimap · /alts scale <80-150> · /alts reset (window size, scale and position)")
     end
 end

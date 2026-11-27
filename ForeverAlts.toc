@@ -20,4 +20,5 @@ Theme.lua
 Widgets.lua
 List.lua
 UI.lua
+Minimap.lua
 Options.lua

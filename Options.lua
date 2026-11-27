@@ -72,7 +72,14 @@ local function Create()
         ns.ShowUI()
     end)
 
-    local mailSec = W.Section(host, open, -22, "Mail")
+    local mini = Check(open, -14, "minimap", "Show the minimap button")
+    mini.onChange = function(v)
+        s.minimap = v
+        ns.UpdateMinimapButton()
+    end
+    local miniNote = W.Note(host, mini, -4, "left-click: the window  ·  right-click: this  ·  drag to move it")
+
+    local mailSec = W.Section(host, miniNote, -18, "Mail")
     local mailWarn = Check(mailSec, -10, "mailWarn", "Warn about mail about to expire")
     local mailNote = W.Note(host, mailWarn, -4,
         "at login, a chat line names any character whose items or gold in the mail run out within 3 days")

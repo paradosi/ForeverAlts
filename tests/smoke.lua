@@ -331,6 +331,10 @@ local sendSlots = { [1] = { id = 2589, count = 10 } }
 function GetSendMailItem(a) local s = sendSlots[a]; if s then return "Linen Cloth", s.id, 1, s.count, 1 end end
 function GetSendMailMoney() return 0 end
 
+Minimap = CreateFrame("Frame", "Minimap")
+Minimap.GetCenter = function() return 100, 100 end
+function GetCursorPosition() return 0, 0 end
+
 ---- Load in TOC order
 
 local ns = {}
@@ -787,6 +791,16 @@ do
     check(ns.settings.mailWarn == false, "options: unticking it saves it")
     mw.scripts.OnClick(mw)
     check(oc.checks.allRealms ~= nil, "options: the realm tick shows where there is a realm")
+    local mb = ForeverAltsMinimapButton
+    check(mb and mb.shown, "minimap: the button is there")
+    SlashCmdList.FOREVERALTS("minimap")
+    check(not mb.shown and ns.settings.minimap == false, "minimap: /alts minimap hides it")
+    ForeverAltsOptions:Show()  -- the panel re-reads the settings when shown
+    check(oc.checks.minimap.checked == false, "minimap: the tick follows /alts minimap")
+    oc.checks.minimap.scripts.OnClick(oc.checks.minimap)
+    check(mb.shown and ns.settings.minimap == true, "minimap: the settings tick shows it again")
+    mb.scripts.OnEnter(mb); mb.scripts.OnDragStart(mb); mb.scripts.OnUpdate(mb); mb.scripts.OnDragStop(mb)
+    check(type(ns.settings.minimapAngle) == "number", "minimap: dragging saves its place")
     oc.scale.onChange(125)
     check(sc == 1.25 and placed[1] == "CENTER" and math.abs(placed[4] - 640) < 0.01, "scale: the slider scales the window, centre kept")
     SlashCmdList.FOREVERALTS("scale 300")
