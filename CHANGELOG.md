@@ -3,6 +3,7 @@
 ## v0.1.0
 
 - First version, for WoW Forever.
+- **Settings** (Esc > Options > AddOns > Forever Alts, or `/alts options`) in the same navy-and-gold look as the window, with the version and a **Help and bug reports** button that gives you the GitHub address to copy. `/alts help` prints both.
 - **Characters**: every character you log in on, with level and XP, location, gold, played time,
   rested XP (it keeps growing while they're logged out), item level, free bag slots and when you last
   played them. Click a column to sort. Totals for gold and played time along the bottom.

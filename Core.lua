@@ -252,6 +252,7 @@ SlashCmdList.FOREVERALTS = function(msg)
         if ns.ResetPosition then ns.ResetPosition() end
         ns.Say("window back to its usual size and scale, in the middle.")
     else
+        ns.Say("version " .. (ns.VERSION or "?") .. (ns.WEBSITE and ("  ·  help and bug reports: " .. ns.WEBSITE) or ""))
         ns.Say("/alts opens the window · /alts items <name> searches every character's items · "
             .. "/alts profs <recipe> finds who can craft it · /alts reps <faction> · /alts locks · /alts armory · /alts talents · /alts plan · /alts legacy · /alts options · /alts scale <80-150> · /alts reset (window size, scale and position)")
     end

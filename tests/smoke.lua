@@ -58,6 +58,18 @@ local methods = {
     GetPoint = function() return "CENTER", nil, "CENTER", 0, 0 end,
     CreateTexture = function() return NewWidget("Texture") end,
     CreateFontString = function() return NewWidget("FontString") end,
+    -- the themed settings panel's slider (Widgets.lua)
+    GetThumbTexture = function(self) if not rawget(self, "thumb") then self.thumb = NewWidget("Texture") end; return self.thumb end,
+    SetMinMaxValues = function(self, a, b) self.min, self.max = a, b end,
+    SetValue = function(self, v)
+        self.value = v
+        if self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, v) end
+    end,
+    GetValue = function(self) return rawget(self, "value") end,
+    HasFocus = function() return false end,
+    GetVerticalScrollRange = function() return 0 end,
+    GetVerticalScroll = function() return 0 end,
+    GetBottom = function() return 100 end,
     CreateMaskTexture = function() return NewWidget("MaskTexture") end,
     CreateLine = function() return NewWidget("Line") end,
     RegisterEvent = function(self, e) self.events[e] = true end,
@@ -202,6 +214,7 @@ MinimalSliderWithSteppersMixin = { Label = { Right = 1 } }
 local category = { GetID = function() return 1 end }
 Settings = {
     RegisterVerticalLayoutCategory = function() return category, { AddInitializer = function() end } end,
+    RegisterCanvasLayoutCategory = function() return category end,
     RegisterProxySetting = function(_, name, _, _, _, get, set) proxies[name] = { get = get, set = set }; return {} end,
     CreateCheckbox = function() end,
     CreateSlider = function() end,
@@ -764,8 +777,17 @@ do
     local placed
     f.SetPoint = function(_, ...) placed = { ... } end
     f.GetPoint = function() return placed[1], placed[2], placed[3], placed[4], placed[5] end
-    check(proxies.FALTS_scale and proxies.FALTS_scale.get() == 100, "scale: the option is there, at 100%")
-    proxies.FALTS_scale.set(125)
+    local oc = ns.optionControls
+    check(oc and oc.scale, "options: the themed panel is built")
+    ForeverAltsOptions:Show()
+    check(ns.settings.scale == 100, "scale: the option is there, at 100%")
+    local mw = oc.checks.mailWarn
+    check(mw and mw.checked == true, "options: the mail tick shows the setting")
+    mw.scripts.OnClick(mw)
+    check(ns.settings.mailWarn == false, "options: unticking it saves it")
+    mw.scripts.OnClick(mw)
+    check(oc.checks.allRealms ~= nil, "options: the realm tick shows where there is a realm")
+    oc.scale.onChange(125)
     check(sc == 1.25 and placed[1] == "CENTER" and math.abs(placed[4] - 640) < 0.01, "scale: the slider scales the window, centre kept")
     SlashCmdList.FOREVERALTS("scale 300")
     check(ns.settings.scale == 150 and sc == 1.5, "scale: /alts scale is held to 150%")
