@@ -145,9 +145,10 @@ stays on when you switch to the Reputation tab, which then shows only their stan
 | `/alts legacy` | Open the Talents tab on the Legacy trees |
 | `/alts locks` | Open the Lockouts tab (also `/alts lockouts`, `/alts raids`) |
 | `/alts options` | Open the options panel |
+| `/alts minimap` | Show or hide the minimap button |
 | `/alts scale <80-150>` | Make the whole window larger or smaller, in steps of 5%; with no number, says the current scale |
 | `/alts reset` | Put the window back to its usual size and 100% scale, in the middle of the screen |
-| `/alts help` | List the commands |
+| `/alts help` | The version, the GitHub link and the commands |
 
 To forget a character (deleted, or transferred away), right-click their row and choose **Forget this character**.
 

@@ -8,6 +8,7 @@ manual-changelog:
 ignore:
   - README.md
   - CHANGELOG.md
+  - CURSEFORGE.md
   - LICENSE
   - .github
   - .gitignore
