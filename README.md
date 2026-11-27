@@ -10,6 +10,21 @@ item counts on every tooltip. It does the job of Altoholic, with a cleaner look 
 > Forever Alts is written for **WoW Forever** (Interface 16001) only. It uses Forever's Retail-12 API
 > (bank tabs, `C_TradeSkillUI`, tooltip data processors) and will not load on Classic Era, TBC Anniversary or Retail.
 
+## Screenshots
+
+| | |
+|---|---|
+| <img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/characters.jpg" width="400" alt="Characters tab: level, location, gold, played time, rested XP, item level, bags, talents, mail"> | <img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/items.jpg" width="400" alt="Items tab: one character's bags, bank, mail and gear"> |
+| **Characters**: every alt in one sortable table | **Items**: bags, bank, mail and gear, searchable across characters |
+| <img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/professions.jpg" width="400" alt="Professions tab: every character's skills with progress bars"> | <img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/reputation.jpg" width="400" alt="Reputation tab: factions grouped with standing bars"> |
+| **Professions**: skill bars and recipe counts; type to find who can make something | **Reputation**: every faction's standing |
+| <img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/talents.jpg" width="400" alt="Talents tab: the three talent trees"> | <img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/armory.jpg" width="400" alt="Armory tab: equipped gear around the character model, with stats"> |
+| **Talents**: the trees as spent, plus a planner and the Legacy trees | **Armory**: gear, model and stats |
+
+<img src="https://raw.githubusercontent.com/paradosi/ForeverAlts/main/media/screenshots/settings.jpg" width="400" alt="The settings panel">
+
+Character names are blurred in these pictures.
+
 ## Features
 
 - **Characters**: one row per character showing level (with progress through it), location, gold, played time,
@@ -150,6 +165,9 @@ Esc → Options → AddOns → **Forever Alts**, or `/alts options`. All setting
 | Include characters on other realms | On | Off counts only characters on the current realm |
 | Show who can make the item | On | The *Made by* line |
 | Warn about mail about to expire | On | A chat line at login for each character whose mail runs out within 3 days |
+| Remind me of my talent plan | On | With talent points to spend, a chat line names the next talent in your class's plan |
+| Show the plan in the talent window | On | The next planned talent gets a running gold border in the game's talent window |
+| Show the minimap button | On | Left-click opens the window, right-click the settings, drag moves it. Also `/alts minimap` |
 
 Everything is saved in `WTF\Account\<account>\SavedVariables\ForeverAlts.lua` (`ForeverAltsDB`).
 
