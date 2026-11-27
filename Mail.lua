@@ -79,7 +79,7 @@ end)
 
 ---- Mail sent to your own characters
 
--- "Para Dosi", "para dosi", "Para-Dosi" all name the same character
+-- "Pella Doss", "pella doss", "Pella-Doss" all name the same character
 local function Normal(name)
     return (name or ""):lower():gsub("%-", " "):gsub("%s+", " "):match("^%s*(.-)%s*$")
 end
