@@ -184,7 +184,8 @@ Releasing follows the shared pipeline: `wowdev bump ForeverAlts X.Y.Z -w`, updat
 | `Theme.lua` | wowdb.dev's colour tokens and fonts, and the small widgets built from them |
 | `List.lua` | A virtual scrolling list: a fixed set of rows reused as you scroll |
 | `UI.lua` | The window and its six views |
-| `Options.lua` | The Settings panel |
+| `Options.lua` | The settings panel (Esc > Options > AddOns), built with `Widgets.lua` |
+| `Widgets.lua` | Panel controls and the support-link copy dialog; shared byte-identical with ForeverQuestItemBar (its source) and the other Forever addons |
 | `tests/smoke.lua` | Headless smoke test (not shipped) |
 | `media/fonts` | Oswald and JetBrains Mono, with their OFL licences (shipped) |
 | `media/textures/logo_64.tga` | The addon list icon (shipped) |
