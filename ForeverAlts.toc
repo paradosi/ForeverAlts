@@ -20,5 +20,6 @@ Theme.lua
 Widgets.lua
 List.lua
 UI.lua
+MinimapButton.lua
 Minimap.lua
 Options.lua
